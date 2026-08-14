@@ -1,0 +1,44 @@
+# S20 VoLTE — SELinux policy (Magisk applies this via magiskpolicy at boot).
+#
+# GOAL: let the Samsung IMS stack run while keeping GLOBAL SELinux ENFORCING. We never flip the
+# global enforce bit — that is what trips Samsung RKP and force-reboots the device. Magisk
+# patches the loaded policy the same way it does for its own domains, which is RKP-safe.
+#
+# CURRENT STATE: `permissive system_app` only.
+#
+# HOW THE OTHER THREE WERE RETIRED:
+#   init, radio   — removed in candidate 03, device-validated. Note this bought no security:
+#                   ps -AZ showed the init domain holding one process and the radio domain
+#                   holding only com.android.phone. No module process ever ran in either; the
+#                   module's daemons run in the magisk domain. A clean removal, not a win.
+#   system_server — removed in candidate 04. Its original justification was unsound (it came
+#                   from a logcat window that structurally cannot show kernel AVCs). Re-derived
+#                   from kernel evidence in candidate 05: the only system_server denials in
+#                   dmesg were sysfs/extcon cable probing, which is generic GSI behaviour and
+#                   not this module's business, plus one adb_data_file getattr that the
+#                   framework-jar relabel below removes. Those sysfs accesses were enforced on
+#                   stock LineageOS anyway; our permissive line was masking them as a side
+#                   effect, so dropping it restores stock behaviour rather than breaking it.
+#
+# WHY THE SOCKET NEEDS NO RULE: the loaded GSI policy already carries
+#     allow system_app imsd_socket sock_file { write }
+#     allow system_app magisk unix_stream_socket { getopt connectto }
+# Both halves of the connect path are already granted for the Samsung type. ims_sock_launch was
+# creating /dev/socket/imsd as generic socket_device, which no rule covers, so the write
+# survived only because system_app is permissive. post-fs-data.sh now relabels the node, routing
+# the access onto a grant the ROM already ships. Same principle as FILE-001: fix the label
+# rather than grant the wrong type.
+#
+# REMAINING WORK before `permissive system_app` can go — one evidenced denial is still open:
+#     system_app -> system_data_file : file { append }   (imscr.log.0)
+# Prefer relocating that log into module-owned storage over granting append. Only when
+# kernel_module_avc.txt is empty across boot + call + SMS + emergency may this last line be
+# removed. It is also the only one whose removal actually buys security: 8 processes share the
+# system_app domain (Settings, keychain, dynsystem, localtransport, lineageparts, qcrilam, ...).
+#
+# EVIDENCE RULE: a quiet logcat proves nothing. AVCs land in the kernel audit buffer. Use the
+# two-phase collector (`collect_selinux_ims.sh STAGE arm` before the workload, `... collect`
+# after) and read kernel_module_avc.txt / avc_coverage.txt. Remember that permissive=1 lines are
+# denials that WILL fail once the permissive line is removed.
+
+permissive system_app

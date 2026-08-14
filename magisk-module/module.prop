@@ -1,0 +1,6 @@
+id=s20volte_ims
+name=S20 VoLTE (Samsung IMS on GSI)
+version=v1.0
+versionCode=3
+author=myesxc
+description=VoLTE, IMS SMS and IMS emergency calls for the Snapdragon Galaxy S20 (SM-G98x) on an Android 13 GSI. Verified on LineageOS 20 with SM-G981N and SM-G9880. Bundles the patched imsservice.apk (modern ImsService bridge) plus Samsung IMS blobs from G981NKSU1HVJG. Needs a test-keys GSI. Known limits: SIM1 only, ~7s offline after each call, system_app stays permissive, emergency calls not fully verified - see README.

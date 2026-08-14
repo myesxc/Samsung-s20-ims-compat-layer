@@ -1,0 +1,54 @@
+# ---------------------------------------------------------------------------
+# Local build tool cache and signing keys — never commit
+# ---------------------------------------------------------------------------
+# tools/README.md documents how to recreate this directory. The working copy may contain
+# Android SDK/build-tools, dex-tools, apktool and ROM platform keys for local builds, but
+# none of those binaries or credentials belong in the public repository.
+tools/*
+!tools/README.md
+# Locally extracted proprietary build inputs and generated APK artifacts.
+build-inputs/
+imsmanager-compat/out/
+imsmanager-compat/input/
+*.pk8
+*.jks
+*.keystore
+*.x509.pem
+*.key.pem
+
+# ---------------------------------------------------------------------------
+# Device capture logs — never commit (may contain IMSI, phone numbers, IMEI)
+# ---------------------------------------------------------------------------
+20[0-9][0-9][0-9][0-9][0-9][0-9]_*/
+*_capture*/
+*_logcat*/
+*_dmesg*/
+logcat_*.txt
+dmesg*.txt
+kernel_*.txt
+*.pcap
+
+# ---------------------------------------------------------------------------
+# Build temporaries
+# ---------------------------------------------------------------------------
+*.tmp
+*.bak
+*.log
+dexjar.jar
+dexjar.jar.out/
+out.jar
+classes.dex
+
+# NOTE: smali_out/, libs/*.jar and everything under
+# proprietary_vendor_samsung_ims/ ARE tracked on purpose — they are the
+# deliverables of this repository. Do not add blanket *.apk / *.jar / *.zip
+# rules here: they would silently exclude imsservice.apk, imsmanager.jar,
+# the RRO overlay and the entire compiled bridge, leaving a repo that
+# looks complete but cannot be built or installed from.
+
+# ---------------------------------------------------------------------------
+# OS noise
+# ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini

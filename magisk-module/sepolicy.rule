@@ -1,0 +1,31 @@
+# S20 VoLTE — SELinux policy (Magisk applies this via magiskpolicy at boot).
+#
+# GOAL: let the Samsung IMS stack run while keeping GLOBAL SELinux ENFORCING. Flipping the
+# global enforce bit is what trips Samsung RKP and force-reboots the device; magiskpolicy
+# patches the loaded policy without touching that bit, so this stays RKP-safe.
+#
+# STATE: converged from the original four permissive domains down to one, adding no allow
+# rules at all — every other need was met by relabelling files to types the stock policy
+# already grants (see post-fs-data.sh: imsd_socket, rdxdump_data_file, system_lib_file).
+#
+#   removed  init           — the domain holds only init itself; module daemons run in the
+#                             magisk domain, so this rule never covered anything.
+#   removed  radio          — the domain holds only com.android.phone, same reasoning.
+#   removed  system_server  — was needed only because magic-mounted files looked like
+#                             adb_data_file; recursive relabelling fixed the cause.
+#
+#   kept     system_app     — imsservice cannot load its own APK or the RRO idmap under
+#                             enforcing. system_app has no rules at all for
+#                             resourcecache_data_file (only system_server and init do), and
+#                             AOSP does not intend app-domain processes to read idmap files
+#                             directly. Granting it would EXPAND access for all 8 processes
+#                             sharing this domain (settings, keychain, dynsystem,
+#                             localtransport, lineageparts, qcrilam, imsservice), which is
+#                             the opposite of minimisation. Retested after the label fixes
+#                             and still required.
+#
+# RESIDUAL RISK: system_app runs permissive. The real fix is a dedicated domain for
+# imsservice rather than more grants to system_app — that needs new type declarations and a
+# domain transition, which this module deliberately does not add.
+
+permissive system_app

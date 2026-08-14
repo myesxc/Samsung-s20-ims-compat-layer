@@ -1,0 +1,2866 @@
+--- a/com/sec/internal/google/DataTypeConvertor.smali
++++ b/com/sec/internal/google/DataTypeConvertor.smali
+@@ -1038,6 +1038,47 @@
+ 
+     const/4 v7, 0x2
+ 
++    iget v8, p1, Landroid/telephony/ims/ImsCallProfile;->mServiceType:I
++
++    if-ne v8, v7, :cond_test_emergency_done
++
++    invoke-virtual {p1}, Landroid/telephony/ims/ImsCallProfile;->isEmergencyCallTesting()Z
++
++    move-result v8
++
++    if-eqz v8, :cond_test_emergency_done
++
++    const-string v8, "DataTypeConvertor"
++
++    const-string v9, "DIAGMOD emergencyCallTesting=true mapped to Samsung normal IMS profile"
++
++    invoke-static {v8, v9}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
++
++    const/4 p0, 0x1
++
++    iget v2, p1, Landroid/telephony/ims/ImsCallProfile;->mCallType:I
++
++    invoke-static {p0, v2, p2, v1}, Lcom/sec/internal/google/DataTypeConvertor;->convertToSecCallType(IIZZ)I
++
++    move-result p0
++
++    invoke-virtual {v0, p0}, Lcom/sec/ims/volte2/data/CallProfile;->setCallType(I)V
++
++    const-string p0, "oir"
++
++    invoke-virtual {p1, p0, v3}, Landroid/telephony/ims/ImsCallProfile;->getCallExtraInt(Ljava/lang/String;I)I
++
++    move-result p0
++
++    invoke-static {p0}, Lcom/sec/internal/google/DataTypeConvertor;->convertToClirPrefix(I)Ljava/lang/String;
++
++    move-result-object p0
++
++    invoke-virtual {v0, p0}, Lcom/sec/ims/volte2/data/CallProfile;->setCLI(Ljava/lang/String;)V
++
++    goto/16 :goto_4
++
++    :cond_test_emergency_done
+     if-nez v6, :cond_6
+ 
+     iget v6, p1, Landroid/telephony/ims/ImsCallProfile;->mServiceType:I
+@@ -1145,7 +1186,7 @@
+     const-string p2, "persist.omc.sales_code"
+ 
+     .line 635
+-    invoke-static {p2, v2}, Landroid/os/SemSystemProperties;->get(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
++    invoke-static {p2, v2}, Landroid/os/SystemProperties;->get(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+ 
+     move-result-object p2
+ 
+@@ -1159,7 +1200,7 @@
+     const-string p2, "ro.csc.sales_code"
+ 
+     .line 637
+-    invoke-static {p2}, Landroid/os/SemSystemProperties;->get(Ljava/lang/String;)Ljava/lang/String;
++    invoke-static {p2}, Landroid/os/SystemProperties;->get(Ljava/lang/String;)Ljava/lang/String;
+ 
+     move-result-object p2
+ 
+--- a/com/sec/internal/google/GoogleImsService.smali
++++ b/com/sec/internal/google/GoogleImsService.smali
+@@ -838,6 +838,14 @@
+     throw p0
+ .end method
+ 
++.method public static getInstanceIfReady()Lcom/sec/internal/google/GoogleImsService;
++    .locals 1
++
++    sget-object v0, Lcom/sec/internal/google/GoogleImsService;->mInstance:Lcom/sec/internal/google/GoogleImsService;
++
++    return-object v0
++.end method
++
+ .method public static getRegistrationTech(IZ)I
+     .locals 2
+ 
+@@ -917,6 +925,23 @@
+     return p0
+ .end method
+ 
++.method public static isReady()Z
++    .locals 1
++
++    sget-object v0, Lcom/sec/internal/google/GoogleImsService;->mInstance:Lcom/sec/internal/google/GoogleImsService;
++
++    if-eqz v0, :cond_0
++
++    const/4 v0, 0x1
++
++    return v0
++
++    :cond_0
++    const/4 v0, 0x0
++
++    return v0
++.end method
++
+ .method private static synthetic lambda$extractOwnUrisFromReg$1(Lcom/sec/ims/util/NameAddr;)Z
+     .locals 0
+ 
+@@ -1548,6 +1573,152 @@
+     throw p0
+ .end method
+ 
++.method public createLegacyBackedModernCallSession(ILandroid/telephony/ims/ImsCallProfile;Lcom/sec/internal/google/ModernCallSessionListenerRelay;)Lcom/android/ims/internal/IImsCallSession;
++    .locals 4
++    .annotation system Ldalvik/annotation/Throws;
++        value = {
++            Landroid/os/RemoteException;
++        }
++    .end annotation
++
++    sget-object v0, Lcom/sec/internal/google/GoogleImsService;->LOG_TAG:Ljava/lang/String;
++    new-instance v1, Ljava/lang/StringBuilder;
++    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
++    const-string v2, "DIAGHYBRID native legacy create serviceId="
++    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++    move-result-object v1
++    invoke-virtual {v1, p1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++    move-result-object v1
++    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
++    move-result-object v1
++    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
++
++    const/4 v1, 0x0
++    invoke-virtual {p0, p1, p2, v1}, Lcom/sec/internal/google/GoogleImsService;->createCallSession(ILandroid/telephony/ims/ImsCallProfile;Lcom/android/ims/internal/IImsCallSessionListener;)Lcom/android/ims/internal/IImsCallSession;
++    move-result-object p0
++    if-nez p0, :hybrid_session_ready
++
++    new-instance p0, Landroid/os/RemoteException;
++    const-string p1, "legacy createCallSession returned null"
++    invoke-direct {p0, p1}, Landroid/os/RemoteException;-><init>(Ljava/lang/String;)V
++    throw p0
++
++    :hybrid_session_ready
++    invoke-interface {p0, p3}, Lcom/android/ims/internal/IImsCallSession;->setListener(Landroid/telephony/ims/aidl/IImsCallSessionListener;)V
++    invoke-interface {p0}, Lcom/android/ims/internal/IImsCallSession;->getCallId()Ljava/lang/String;
++    move-result-object p1
++    new-instance p2, Ljava/lang/StringBuilder;
++    invoke-direct {p2}, Ljava/lang/StringBuilder;-><init>()V
++    const-string p3, "DIAGHYBRID native legacy create success callId="
++    invoke-virtual {p2, p3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++    move-result-object p2
++    invoke-virtual {p2, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++    move-result-object p1
++    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
++    move-result-object p1
++    invoke-static {v0, p1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
++    return-object p0
++.end method
++
++.method public createModernCallSession(ILandroid/telephony/ims/ImsCallProfile;)Lcom/sec/internal/google/ImsCallSessionImpl;
++    .locals 6
++    .annotation system Ldalvik/annotation/Throws;
++        value = {
++            Landroid/os/RemoteException;
++        }
++    .end annotation
++
++    sget-object v0, Lcom/sec/internal/google/GoogleImsService;->LOG_TAG:Ljava/lang/String;
++    new-instance v1, Ljava/lang/StringBuilder;
++    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
++    const-string v2, "DIAGMOD createModernCallSession phoneId="
++    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++    move-result-object v1
++    invoke-virtual {v1, p1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++    move-result-object v1
++    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
++    move-result-object v1
++    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
++
++    iget-object v0, p0, Lcom/sec/internal/google/GoogleImsService;->mVolteServiceModule:Lcom/sec/internal/interfaces/ims/servicemodules/volte2/IVolteServiceModule;
++    if-nez v0, :volte_ready
++    new-instance v0, Landroid/os/RemoteException;
++    const-string v1, "VolteServiceModule not ready"
++    invoke-direct {v0, v1}, Landroid/os/RemoteException;-><init>(Ljava/lang/String;)V
++    throw v0
++
++    :volte_ready
++    invoke-interface {v0, p1}, Lcom/sec/internal/interfaces/ims/servicemodules/volte2/IVolteServiceModule;->getTtyMode(I)I
++    move-result v1
++    sget v2, Lcom/sec/ims/extensions/Extensions$TelecomManager;->TTY_MODE_OFF:I
++    const/4 v3, 0x0
++    if-eq v1, v2, :tty_ready
++    const/4 v3, 0x1
++
++    :tty_ready
++    invoke-static {p1, p2, v3}, Lcom/sec/internal/google/DataTypeConvertor;->convertToSecCallProfile(ILandroid/telephony/ims/ImsCallProfile;Z)Lcom/sec/ims/volte2/data/CallProfile;
++    move-result-object v1
++    invoke-static {}, Landroid/os/Binder;->clearCallingIdentity()J
++    move-result-wide v4
++
++    :try_start_modern_create_session
++    invoke-interface {v0, v1}, Lcom/sec/internal/interfaces/ims/servicemodules/volte2/IVolteServiceModule;->createSession(Lcom/sec/ims/volte2/data/CallProfile;)Lcom/sec/ims/volte2/IImsCallSession;
++    move-result-object v0
++    :try_end_modern_create_session
++    .catchall {:try_start_modern_create_session .. :try_end_modern_create_session} :catchall_modern_create_session
++
++    invoke-static {v4, v5}, Landroid/os/Binder;->restoreCallingIdentity(J)V
++    goto :modern_create_session_restored
++
++    :catchall_modern_create_session
++    move-exception v2
++    invoke-static {v4, v5}, Landroid/os/Binder;->restoreCallingIdentity(J)V
++    throw v2
++
++    :modern_create_session_restored
++    if-nez v0, :session_ready
++    new-instance v0, Landroid/os/RemoteException;
++    const-string v1, "VolteServiceModule returned null session"
++    invoke-direct {v0, v1}, Landroid/os/RemoteException;-><init>(Ljava/lang/String;)V
++    throw v0
++
++    :session_ready
++    const-string v1, "CallRadioTech"
++    invoke-virtual {p2, v1}, Landroid/telephony/ims/ImsCallProfile;->getCallExtra(Ljava/lang/String;)Ljava/lang/String;
++    move-result-object v1
++    const/16 v2, 0x12
++    invoke-static {v2}, Ljava/lang/String;->valueOf(I)Ljava/lang/String;
++    move-result-object v2
++    invoke-static {v1, v2}, Landroid/text/TextUtils;->equals(Ljava/lang/CharSequence;Ljava/lang/CharSequence;)Z
++    move-result v1
++    invoke-interface {v0, v1}, Lcom/sec/ims/volte2/IImsCallSession;->setEpdgState(Z)V
++
++    const/4 v1, 0x0
++    new-instance v2, Lcom/sec/internal/google/ImsCallSessionImpl;
++    invoke-direct {v2, p2, v0, v1, p0}, Lcom/sec/internal/google/ImsCallSessionImpl;-><init>(Landroid/telephony/ims/ImsCallProfile;Lcom/sec/ims/volte2/IImsCallSession;Landroid/telephony/ims/aidl/IImsCallSessionListener;Lcom/sec/internal/google/GoogleImsService;)V
++    iget-object v0, p0, Lcom/sec/internal/google/GoogleImsService;->mCallSessionList:Ljava/util/Map;
++    invoke-virtual {v2}, Lcom/sec/internal/google/ImsCallSessionImpl;->getCallIdInt()I
++    move-result v1
++    invoke-static {v1}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
++    move-result-object v1
++    invoke-interface {v0, v1, v2}, Ljava/util/Map;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
++
++    sget-object v0, Lcom/sec/internal/google/GoogleImsService;->LOG_TAG:Ljava/lang/String;
++    new-instance v1, Ljava/lang/StringBuilder;
++    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
++    const-string v3, "DIAGMOD createModernCallSession callId="
++    invoke-virtual {v1, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++    move-result-object v1
++    invoke-virtual {v2}, Lcom/sec/internal/google/ImsCallSessionImpl;->getCallId()Ljava/lang/String;
++    move-result-object v3
++    invoke-virtual {v1, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++    move-result-object v1
++    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
++    move-result-object v1
++    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
++    return-object v2
++.end method
++
+ .method public createCallSession(ILandroid/telephony/ims/ImsCallProfile;Lcom/android/ims/internal/IImsCallSessionListener;)Lcom/android/ims/internal/IImsCallSession;
+     .locals 9
+     .annotation system Ldalvik/annotation/Throws;
+@@ -3002,7 +3173,7 @@
+     const-string v7, "android.telephony.ims.extra.FORWARDED_NUMBER"
+ 
+     .line 637
+-    invoke-virtual {v1, v7, v2}, Landroid/telephony/ims/ImsCallProfile;->setCallExtraStringArray(Ljava/lang/String;[Ljava/lang/String;)V
++    invoke-static {v1, v7, v2}, Lcom/sec/internal/google/CallProfileCompat;->putStringArray(Landroid/telephony/ims/ImsCallProfile;Ljava/lang/String;[Ljava/lang/String;)V
+ 
+     .line 638
+     invoke-virtual {v0}, Lcom/sec/ims/volte2/data/CallProfile;->getAlertInfo()Ljava/lang/String;
+@@ -3043,7 +3214,7 @@
+     aput-object v8, v2, v4
+ 
+     .line 642
+-    invoke-virtual {v1, v7, v2}, Landroid/telephony/ims/ImsCallProfile;->setCallExtraStringArray(Ljava/lang/String;[Ljava/lang/String;)V
++    invoke-static {v1, v7, v2}, Lcom/sec/internal/google/CallProfileCompat;->putStringArray(Landroid/telephony/ims/ImsCallProfile;Ljava/lang/String;[Ljava/lang/String;)V
+ 
+     .line 643
+     invoke-virtual {v0}, Lcom/sec/ims/volte2/data/CallProfile;->getHistoryInfo()Ljava/lang/String;
+@@ -4771,6 +4942,33 @@
+     return-void
+ .end method
+ 
++.method public openModernLegacyContext(ILcom/android/ims/internal/IImsRegistrationListener;)I
++    .locals 5
++    .annotation system Ldalvik/annotation/Throws;
++        value = {
++            Landroid/os/RemoteException;
++        }
++    .end annotation
++
++    new-instance v0, Landroid/content/Intent;
++    const-string v1, "com.sec.internal.google.DIAGLEGACY_INCOMING_CALL"
++    invoke-direct {v0, v1}, Landroid/content/Intent;-><init>(Ljava/lang/String;)V
++
++    iget-object v1, p0, Lcom/sec/internal/google/GoogleImsService;->mContext:Landroid/content/Context;
++    invoke-virtual {v1}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
++    move-result-object v2
++    invoke-virtual {v0, v2}, Landroid/content/Intent;->setPackage(Ljava/lang/String;)Landroid/content/Intent;
++
++    const/high16 v2, 0x4000000
++    invoke-static {v1, p1, v0, v2}, Landroid/app/PendingIntent;->getBroadcast(Landroid/content/Context;ILandroid/content/Intent;I)Landroid/app/PendingIntent;
++    move-result-object v3
++
++    const/4 v4, 0x1
++    invoke-virtual {p0, p1, v4, v3, p2}, Lcom/sec/internal/google/GoogleImsService;->open(IILandroid/app/PendingIntent;Lcom/android/ims/internal/IImsRegistrationListener;)I
++    move-result p0
++    return p0
++.end method
++
+ .method public open(IILandroid/app/PendingIntent;Lcom/android/ims/internal/IImsRegistrationListener;)I
+     .locals 5
+     .annotation system Ldalvik/annotation/Throws;
+@@ -4779,6 +4977,12 @@
+         }
+     .end annotation
+ 
++    const-string v0, "GoogleImsService"
++
++    const-string v1, "DIAG open() CALLED"
++
++    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
++
+     .line 279
+     iget-object v0, p0, Lcom/sec/internal/google/GoogleImsService;->mContext:Landroid/content/Context;
+ 
+--- /dev/null
++++ b/com/sec/internal/google/GoogleImsServiceAdapter.smali
+@@ -0,0 +1,236 @@
++.class public Lcom/sec/internal/google/GoogleImsServiceAdapter;
++.super Landroid/telephony/ims/compat/ImsService;
++.source "GoogleImsServiceAdapter.java"
++
++
++# static fields
++.field private static final LOG_TAG:Ljava/lang/String; = "GoogleImsServiceAdapter"
++
++
++# instance fields
++.field private final mFeatureList:Ljava/util/concurrent/ConcurrentHashMap;
++    .annotation system Ldalvik/annotation/Signature;
++        value = {
++            "Ljava/util/concurrent/ConcurrentHashMap<",
++            "Ljava/lang/Integer;",
++            "Lcom/sec/internal/google/ImsMmtelFeature;",
++            ">;"
++        }
++    .end annotation
++.end field
++
++
++# direct methods
++.method public constructor <init>()V
++    .locals 1
++
++    .line 23
++    invoke-direct {p0}, Landroid/telephony/ims/compat/ImsService;-><init>()V
++
++    .line 21
++    new-instance v0, Ljava/util/concurrent/ConcurrentHashMap;
++
++    invoke-direct {v0}, Ljava/util/concurrent/ConcurrentHashMap;-><init>()V
++
++    iput-object v0, p0, Lcom/sec/internal/google/GoogleImsServiceAdapter;->mFeatureList:Ljava/util/concurrent/ConcurrentHashMap;
++
++    .line 24
++    return-void
++.end method
++
++
++# virtual methods
++.method public onCreateEmergencyMMTelImsFeature(I)Landroid/telephony/ims/compat/feature/MMTelFeature;
++    .locals 2
++
++    .line 42
++    invoke-static {}, Lcom/sec/internal/google/GoogleImsService;->isReady()Z
++
++    move-result v0
++
++    if-eqz v0, :cond_0
++
++    iget-object v0, p0, Lcom/sec/internal/google/GoogleImsServiceAdapter;->mFeatureList:Ljava/util/concurrent/ConcurrentHashMap;
++
++    invoke-static {p1}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
++
++    move-result-object v1
++
++    invoke-virtual {v0, v1}, Ljava/util/concurrent/ConcurrentHashMap;->containsKey(Ljava/lang/Object;)Z
++
++    move-result v0
++
++    if-eqz v0, :cond_0
++
++    .line 43
++    iget-object v0, p0, Lcom/sec/internal/google/GoogleImsServiceAdapter;->mFeatureList:Ljava/util/concurrent/ConcurrentHashMap;
++
++    invoke-static {p1}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
++
++    move-result-object p1
++
++    invoke-virtual {v0, p1}, Ljava/util/concurrent/ConcurrentHashMap;->get(Ljava/lang/Object;)Ljava/lang/Object;
++
++    move-result-object p1
++
++    check-cast p1, Landroid/telephony/ims/compat/feature/MMTelFeature;
++
++    return-object p1
++
++    .line 45
++    :cond_0
++    new-instance v0, Ljava/lang/StringBuilder;
++
++    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
++
++    const-string v1, "onCreateEmergencyMMTelImsFeature: not ready, slotId="
++
++    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object v0
++
++    invoke-virtual {v0, p1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
++
++    move-result-object p1
++
++    const-string v0, "GoogleImsServiceAdapter"
++
++    invoke-static {v0, p1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
++
++    .line 46
++    const/4 p1, 0x0
++
++    return-object p1
++.end method
++
++.method public onCreateMMTelImsFeature(I)Landroid/telephony/ims/compat/feature/MMTelFeature;
++    .locals 3
++
++    const-string v0, "GoogleImsServiceAdapter"
++
++    const-string v1, "onCreateMMTelImsFeature: called, waiting for GoogleImsService ready"
++
++    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
++
++    const/4 v0, 0x0
++
++    :goto_0
++    invoke-static {}, Lcom/sec/internal/google/GoogleImsService;->isReady()Z
++
++    move-result v1
++
++    if-nez v1, :cond_0
++
++    const/16 v1, 0x3c
++
++    if-ge v0, v1, :cond_0
++
++    const-wide/16 v1, 0xfa
++
++    :try_start_0
++    invoke-static {v1, v2}, Ljava/lang/Thread;->sleep(J)V
++    :try_end_0
++    .catch Ljava/lang/InterruptedException; {:try_start_0 .. :try_end_0} :catch_0
++
++    :catch_0
++    add-int/lit8 v0, v0, 0x1
++
++    goto :goto_0
++
++    .line 28
++    :cond_0
++    invoke-static {}, Lcom/sec/internal/google/GoogleImsService;->isReady()Z
++
++    move-result v0
++
++    if-eqz v0, :cond_2
++
++    .line 29
++    iget-object v0, p0, Lcom/sec/internal/google/GoogleImsServiceAdapter;->mFeatureList:Ljava/util/concurrent/ConcurrentHashMap;
++
++    invoke-static {p1}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
++
++    move-result-object v1
++
++    invoke-virtual {v0, v1}, Ljava/util/concurrent/ConcurrentHashMap;->containsKey(Ljava/lang/Object;)Z
++
++    move-result v0
++
++    if-eqz v0, :cond_1
++
++    .line 30
++    iget-object v0, p0, Lcom/sec/internal/google/GoogleImsServiceAdapter;->mFeatureList:Ljava/util/concurrent/ConcurrentHashMap;
++
++    invoke-static {p1}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
++
++    move-result-object p1
++
++    invoke-virtual {v0, p1}, Ljava/util/concurrent/ConcurrentHashMap;->get(Ljava/lang/Object;)Ljava/lang/Object;
++
++    move-result-object p1
++
++    check-cast p1, Landroid/telephony/ims/compat/feature/MMTelFeature;
++
++    return-object p1
++
++    .line 32
++    :cond_1
++    new-instance v0, Lcom/sec/internal/google/ImsMmtelFeature;
++
++    invoke-static {}, Lcom/sec/internal/google/GoogleImsService;->getInstanceIfReady()Lcom/sec/internal/google/GoogleImsService;
++
++    move-result-object v1
++
++    invoke-direct {v0, v1, p1}, Lcom/sec/internal/google/ImsMmtelFeature;-><init>(Lcom/sec/internal/google/GoogleImsService;I)V
++
++    .line 33
++    iget-object v1, p0, Lcom/sec/internal/google/GoogleImsServiceAdapter;->mFeatureList:Ljava/util/concurrent/ConcurrentHashMap;
++
++    invoke-static {p1}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
++
++    move-result-object p1
++
++    invoke-virtual {v1, p1, v0}, Ljava/util/concurrent/ConcurrentHashMap;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
++
++    .line 34
++    const-string v1, "GoogleImsServiceAdapter"
++
++    const-string v2, "DIAG onCreateMMTelImsFeature RETURNING real feature"
++
++    invoke-static {v1, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
++
++    return-object v0
++
++    .line 36
++    :cond_2
++    new-instance v0, Ljava/lang/StringBuilder;
++
++    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
++
++    const-string v1, "onCreateMMTelImsFeature: service not ready yet, slotId="
++
++    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object v0
++
++    invoke-virtual {v0, p1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
++
++    move-result-object p1
++
++    const-string v0, "GoogleImsServiceAdapter"
++
++    invoke-static {v0, p1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
++
++    .line 37
++    const/4 p1, 0x0
++
++    return-object p1
++.end method
+--- a/com/sec/internal/google/ImsCallSessionEventListener.smali
++++ b/com/sec/internal/google/ImsCallSessionEventListener.smali
+@@ -1256,6 +1256,12 @@
+     .line 142
+     iget-object v0, p0, Lcom/sec/internal/google/ImsCallSessionEventListener;->mIcsi:Lcom/sec/internal/google/ImsCallSessionImpl;
+ 
++    invoke-virtual {v0}, Lcom/sec/internal/google/ImsCallSessionImpl;->getCallIdInt()I
++
++    move-result v2
++
++    invoke-static {v2}, Lcom/sec/internal/google/ApRtpReceivePoc;->onEarlyMediaStarted(I)V
++
+     iget-object v0, v0, Lcom/sec/internal/google/ImsCallSessionImpl;->mSession:Lcom/sec/ims/volte2/IImsCallSession;
+ 
+     invoke-interface {v0}, Lcom/sec/ims/volte2/IImsCallSession;->getPhoneId()I
+@@ -1391,6 +1397,16 @@
+ 
+     const/4 v0, 0x0
+ 
++    iget-object v5, p0, Lcom/sec/internal/google/ImsCallSessionEventListener;->mIcsi:Lcom/sec/internal/google/ImsCallSessionImpl;
++
++    invoke-virtual {v5}, Lcom/sec/internal/google/ImsCallSessionImpl;->getCallIdInt()I
++
++    move-result v5
++
++    const-string v4, "ended"
++
++    invoke-static {v5}, Lcom/sec/internal/google/ApRtpReceivePoc;->onEnded(I)V
++
+     .line 259
+     sput v0, Lcom/sec/internal/google/ImsCallSessionEventListener;->mEventCallRetryCounter:I
+ 
+@@ -1599,7 +1615,7 @@
+ 
+     invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
+ 
+-    const-string v5, "onEnded(), CallDirection: "
++    const-string v5, "DIAG15 onEnded(), CallDirection: "
+ 
+     invoke-virtual {v3, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+ 
+@@ -2040,6 +2056,16 @@
+         }
+     .end annotation
+ 
++    iget-object v5, p0, Lcom/sec/internal/google/ImsCallSessionEventListener;->mIcsi:Lcom/sec/internal/google/ImsCallSessionImpl;
++
++    invoke-virtual {v5}, Lcom/sec/internal/google/ImsCallSessionImpl;->getCallIdInt()I
++
++    move-result v5
++
++    const-string v4, "error"
++
++    invoke-static {v5}, Lcom/sec/internal/google/ApRtpReceivePoc;->onError(I)V
++
+     .line 369
+     iget-object v0, p0, Lcom/sec/internal/google/ImsCallSessionEventListener;->mIcsi:Lcom/sec/internal/google/ImsCallSessionImpl;
+ 
+@@ -2051,6 +2077,38 @@
+ 
+     .line 372
+     :cond_0
++    new-instance v5, Ljava/lang/StringBuilder;
++
++    invoke-direct {v5}, Ljava/lang/StringBuilder;-><init>()V
++
++    const-string v4, "DIAG15 onError error="
++
++    invoke-virtual {v5, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object v5
++
++    invoke-virtual {v5, p1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    move-result-object v5
++
++    const-string v4, " extra="
++
++    invoke-virtual {v5, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object v5
++
++    invoke-virtual {v5, p3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    move-result-object v5
++
++    invoke-virtual {v5}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
++
++    move-result-object v5
++
++    const-string v4, "ImsCallSessionEventListener"
++
++    invoke-static {v4, v5}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
++
+     invoke-interface {v0}, Lcom/sec/ims/volte2/IImsCallSession;->getCallProfile()Lcom/sec/ims/volte2/data/CallProfile;
+ 
+     move-result-object v0
+@@ -2360,7 +2418,7 @@
+ .end method
+ 
+ .method public onEstablished(I)V
+-    .locals 4
++    .locals 6
+     .annotation system Ldalvik/annotation/Throws;
+         value = {
+             Landroid/os/RemoteException;
+@@ -2377,6 +2435,39 @@
+     .line 163
+     iput v2, v0, Lcom/sec/internal/google/ImsCallSessionImpl;->mState:I
+ 
++    const-string v4, "ImsCallSessionEventListener"
++
++    const-string v5, "DIAG15 onEstablished state=4"
++
++    invoke-static {v4, v5}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
++
++    iget-object v4, p0, Lcom/sec/internal/google/ImsCallSessionEventListener;->mIcsi:Lcom/sec/internal/google/ImsCallSessionImpl;
++
++    invoke-virtual {v4}, Lcom/sec/internal/google/ImsCallSessionImpl;->getCallIdInt()I
++
++    move-result v4
++
++    invoke-static {v4}, Lcom/sec/internal/google/ApBearerLatchProbe;->onCallEstablished(I)V
++
++    const/4 v5, 0x0
++    :try_start_desem24_network
++    iget-object v3, p0, Lcom/sec/internal/google/ImsCallSessionEventListener;->mIcsi:Lcom/sec/internal/google/ImsCallSessionImpl;
++    iget-object v3, v3, Lcom/sec/internal/google/ImsCallSessionImpl;->mSession:Lcom/sec/ims/volte2/IImsCallSession;
++    if-eqz v3, :desem24_network_done
++    invoke-interface {v3}, Lcom/sec/ims/volte2/IImsCallSession;->getRegistration()Lcom/sec/ims/ImsRegistration;
++    move-result-object v3
++    if-eqz v3, :desem24_network_done
++    invoke-virtual {v3}, Lcom/sec/ims/ImsRegistration;->getNetwork()Landroid/net/Network;
++    move-result-object v5
++    :try_end_desem24_network
++    .catch Ljava/lang/Throwable; {:try_start_desem24_network .. :try_end_desem24_network} :catch_desem24_network
++    goto :desem24_network_done
++    :catch_desem24_network
++    move-exception v3
++    const/4 v5, 0x0
++    :desem24_network_done
++    invoke-static {v4, v5}, Lcom/sec/internal/google/ApRtpReceivePoc;->onEstablished(ILandroid/net/Network;)V
++
+     .line 164
+     iget-object v0, v0, Lcom/sec/internal/google/ImsCallSessionImpl;->mSession:Lcom/sec/ims/volte2/IImsCallSession;
+ 
+@@ -3534,13 +3625,19 @@
+ .end method
+ 
+ .method public onSessionProgress(I)V
+-    .locals 2
++    .locals 4
+     .annotation system Ldalvik/annotation/Throws;
+         value = {
+             Landroid/os/RemoteException;
+         }
+     .end annotation
+ 
++    const-string v2, "ImsCallSessionEventListener"
++
++    const-string v3, "DIAG15 onSessionProgress"
++
++    invoke-static {v2, v3}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
++
+     .line 119
+     iget-object v0, p0, Lcom/sec/internal/google/ImsCallSessionEventListener;->mIcsi:Lcom/sec/internal/google/ImsCallSessionImpl;
+ 
+--- a/com/sec/internal/google/ImsCallSessionImpl.smali
++++ b/com/sec/internal/google/ImsCallSessionImpl.smali
+@@ -2380,11 +2380,17 @@
+ .end method
+ 
+ .method public setListener(Landroid/telephony/ims/aidl/IImsCallSessionListener;)V
+-    .locals 0
++    .locals 2
+ 
+     .line 271
+     iput-object p1, p0, Lcom/sec/internal/google/ImsCallSessionImpl;->mListener:Landroid/telephony/ims/aidl/IImsCallSessionListener;
+ 
++    const-string v0, "ImsCallSessionImpl"
++
++    const-string v1, "DIAG15 ICSI setListener stored"
++
++    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
++
+     .line 273
+     :try_start_0
+     iget-object p0, p0, Lcom/sec/internal/google/ImsCallSessionImpl;->mVolteEventListener:Lcom/sec/ims/volte2/IImsCallSessionEventListener;
+@@ -3254,7 +3260,7 @@
+ 
+     const-string v7, "android.telephony.ims.extra.FORWARDED_NUMBER"
+ 
+-    invoke-virtual {v6, v7, v2}, Landroid/telephony/ims/ImsCallProfile;->setCallExtraStringArray(Ljava/lang/String;[Ljava/lang/String;)V
++    invoke-static {v6, v7, v2}, Lcom/sec/internal/google/CallProfileCompat;->putStringArray(Landroid/telephony/ims/ImsCallProfile;Ljava/lang/String;[Ljava/lang/String;)V
+ 
+     .line 861
+     iget-object v2, p0, Lcom/sec/internal/google/ImsCallSessionImpl;->mCallProfile:Landroid/telephony/ims/ImsCallProfile;
+@@ -3290,7 +3296,7 @@
+     .line 865
+     iget-object v9, p0, Lcom/sec/internal/google/ImsCallSessionImpl;->mCallProfile:Landroid/telephony/ims/ImsCallProfile;
+ 
+-    invoke-virtual {v9, v7, v2}, Landroid/telephony/ims/ImsCallProfile;->setCallExtraStringArray(Ljava/lang/String;[Ljava/lang/String;)V
++    invoke-static {v9, v7, v2}, Lcom/sec/internal/google/CallProfileCompat;->putStringArray(Landroid/telephony/ims/ImsCallProfile;Ljava/lang/String;[Ljava/lang/String;)V
+ 
+     .line 866
+     invoke-virtual {v1}, Lcom/sec/ims/volte2/data/CallProfile;->getHistoryInfo()Ljava/lang/String;
+--- /dev/null
++++ b/com/sec/internal/google/ImsMmtelFeature.smali
+@@ -0,0 +1,841 @@
++.class public Lcom/sec/internal/google/ImsMmtelFeature;
++.super Landroid/telephony/ims/compat/feature/MMTelFeature;
++.source "ImsMmtelFeature.java"
++
++
++# static fields
++.field private static final LOG_TAG:Ljava/lang/String; = "ImsMmTelFeature"
++
++
++# instance fields
++.field mMainSvc:Lcom/sec/internal/google/GoogleImsService;
++
++.field private final mPhoneId:I
++
++.field private mServiceId:I
++
++
++# direct methods
++.method public constructor <init>(Lcom/sec/internal/google/GoogleImsService;I)V
++    .locals 0
++
++    .line 39
++    invoke-direct {p0}, Landroid/telephony/ims/compat/feature/MMTelFeature;-><init>()V
++
++    .line 40
++    iput p2, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mPhoneId:I
++
++    .line 41
++    invoke-virtual {p0, p2}, Lcom/sec/internal/google/ImsMmtelFeature;->setSlotId(I)V
++
++    .line 42
++    iput-object p1, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mMainSvc:Lcom/sec/internal/google/GoogleImsService;
++
++    .line 43
++    const/4 p1, -0x1
++
++    iput p1, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mServiceId:I
++
++    .line 44
++    const/4 p1, 0x2
++
++    invoke-virtual {p0, p1}, Lcom/sec/internal/google/ImsMmtelFeature;->setFeatureState(I)V
++
++    .line 45
++    return-void
++.end method
++
++
++# virtual methods
++.method public addRegistrationListener(Lcom/android/ims/internal/IImsRegistrationListener;)V
++    .locals 2
++
++    const-string v0, "ImsMmTelFeature"
++
++    const-string v1, "DIAG addRegistrationListener CALLED"
++
++    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
++
++    .line 87
++    iget v0, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mServiceId:I
++
++    const/4 v1, -0x1
++
++    if-eq v0, v1, :cond_0
++
++    const-string v1, "ImsMmTelFeature"
++
++    const-string v0, "DIAG addRegistrationListener APPLIED (mServiceId!=-1)"
++
++    invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
++
++    .line 88
++    iget v0, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mServiceId:I
++
++    iget-object v1, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mMainSvc:Lcom/sec/internal/google/GoogleImsService;
++
++    invoke-virtual {v1, v0, p1}, Lcom/sec/internal/google/GoogleImsService;->setRegistrationListener(ILcom/android/ims/internal/IImsRegistrationListener;)V
++
++    .line 90
++    :cond_0
++    return-void
++.end method
++
++.method public createCallProfile(III)Landroid/telephony/ims/ImsCallProfile;
++    .locals 2
++
++    .line 106
++    iget v0, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mServiceId:I
++
++    if-ne p1, v0, :cond_1
++
++    .line 111
++    const/4 v1, -0x1
++
++    if-eq v0, v1, :cond_0
++
++    .line 113
++    :try_start_0
++    iget-object v0, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mMainSvc:Lcom/sec/internal/google/GoogleImsService;
++
++    invoke-virtual {v0, p1, p2, p3}, Lcom/sec/internal/google/GoogleImsService;->createCallProfile(III)Landroid/telephony/ims/ImsCallProfile;
++
++    move-result-object p1
++    :try_end_0
++    .catch Landroid/os/RemoteException; {:try_start_0 .. :try_end_0} :catch_0
++
++    return-object p1
++
++    .line 114
++    :catch_0
++    move-exception p1
++
++    .line 115
++    new-instance p2, Ljava/lang/StringBuilder;
++
++    invoke-direct {p2}, Ljava/lang/StringBuilder;-><init>()V
++
++    const-string p3, "createCallProfile: "
++
++    invoke-virtual {p2, p3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p2
++
++    invoke-virtual {p1}, Landroid/os/RemoteException;->getMessage()Ljava/lang/String;
++
++    move-result-object p1
++
++    invoke-virtual {p2, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
++
++    move-result-object p1
++
++    const-string p2, "ImsMmTelFeature"
++
++    invoke-static {p2, p1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
++
++    .line 118
++    :cond_0
++    const/4 p1, 0x0
++
++    return-object p1
++
++    .line 107
++    :cond_1
++    new-instance p2, Ljava/lang/RuntimeException;
++
++    new-instance p3, Ljava/lang/StringBuilder;
++
++    invoke-direct {p3}, Ljava/lang/StringBuilder;-><init>()V
++
++    const-string v0, "Provided session ID ("
++
++    invoke-virtual {p3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p3
++
++    invoke-virtual {p3, p1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    const-string p3, ") does not match with the phone ID ("
++
++    invoke-virtual {p1, p3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    iget p3, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mPhoneId:I
++
++    invoke-virtual {p1, p3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    const-string p3, ")\'s session ID ("
++
++    invoke-virtual {p1, p3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    iget p3, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mServiceId:I
++
++    invoke-virtual {p1, p3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    const-string p3, ")"
++
++    invoke-virtual {p1, p3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
++
++    move-result-object p1
++
++    invoke-direct {p2, p1}, Ljava/lang/RuntimeException;-><init>(Ljava/lang/String;)V
++
++    throw p2
++.end method
++
++.method public createCallSession(ILandroid/telephony/ims/ImsCallProfile;Lcom/android/ims/internal/IImsCallSessionListener;)Lcom/android/ims/internal/IImsCallSession;
++    .locals 2
++
++    .line 123
++    iget v0, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mServiceId:I
++
++    if-ne p1, v0, :cond_1
++
++    .line 128
++    const/4 v1, -0x1
++
++    if-eq v0, v1, :cond_0
++
++    .line 130
++    :try_start_0
++    iget-object v0, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mMainSvc:Lcom/sec/internal/google/GoogleImsService;
++
++    invoke-virtual {v0, p1, p2, p3}, Lcom/sec/internal/google/GoogleImsService;->createCallSession(ILandroid/telephony/ims/ImsCallProfile;Lcom/android/ims/internal/IImsCallSessionListener;)Lcom/android/ims/internal/IImsCallSession;
++
++    move-result-object p1
++    :try_end_0
++    .catch Landroid/os/RemoteException; {:try_start_0 .. :try_end_0} :catch_0
++
++    return-object p1
++
++    .line 131
++    :catch_0
++    move-exception p1
++
++    .line 132
++    new-instance p2, Ljava/lang/StringBuilder;
++
++    invoke-direct {p2}, Ljava/lang/StringBuilder;-><init>()V
++
++    const-string p3, "createCallSession: "
++
++    invoke-virtual {p2, p3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p2
++
++    invoke-virtual {p1}, Landroid/os/RemoteException;->getMessage()Ljava/lang/String;
++
++    move-result-object p1
++
++    invoke-virtual {p2, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
++
++    move-result-object p1
++
++    const-string p2, "ImsMmTelFeature"
++
++    invoke-static {p2, p1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
++
++    .line 135
++    :cond_0
++    const/4 p1, 0x0
++
++    return-object p1
++
++    .line 124
++    :cond_1
++    new-instance p2, Ljava/lang/RuntimeException;
++
++    new-instance p3, Ljava/lang/StringBuilder;
++
++    invoke-direct {p3}, Ljava/lang/StringBuilder;-><init>()V
++
++    const-string v0, "Provided session ID ("
++
++    invoke-virtual {p3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p3
++
++    invoke-virtual {p3, p1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    const-string p3, ") does not match with the phone ID ("
++
++    invoke-virtual {p1, p3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    iget p3, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mPhoneId:I
++
++    invoke-virtual {p1, p3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    const-string p3, ")\'s session ID ("
++
++    invoke-virtual {p1, p3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    iget p3, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mServiceId:I
++
++    invoke-virtual {p1, p3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    const-string p3, ")"
++
++    invoke-virtual {p1, p3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
++
++    move-result-object p1
++
++    invoke-direct {p2, p1}, Ljava/lang/RuntimeException;-><init>(Ljava/lang/String;)V
++
++    throw p2
++.end method
++
++.method public endSession(I)V
++    .locals 3
++
++    .line 59
++    iget v0, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mServiceId:I
++
++    if-ne p1, v0, :cond_1
++
++    .line 64
++    const/4 p1, -0x1
++
++    if-eq v0, p1, :cond_0
++
++    .line 65
++    iget-object v1, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mMainSvc:Lcom/sec/internal/google/GoogleImsService;
++
++    invoke-virtual {v1, v0}, Lcom/sec/internal/google/GoogleImsService;->close(I)V
++
++    .line 66
++    iput p1, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mServiceId:I
++
++    .line 68
++    :cond_0
++    return-void
++
++    .line 60
++    :cond_1
++    new-instance v0, Ljava/lang/RuntimeException;
++
++    new-instance v1, Ljava/lang/StringBuilder;
++
++    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
++
++    const-string v2, "Provided session ID ("
++
++    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object v1
++
++    invoke-virtual {v1, p1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    const-string v1, ") does not match with the phone ID ("
++
++    invoke-virtual {p1, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    iget v1, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mPhoneId:I
++
++    invoke-virtual {p1, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    const-string v1, ")\'s session ID ("
++
++    invoke-virtual {p1, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    iget v1, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mServiceId:I
++
++    invoke-virtual {p1, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    const-string v1, ")"
++
++    invoke-virtual {p1, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
++
++    move-result-object p1
++
++    invoke-direct {v0, p1}, Ljava/lang/RuntimeException;-><init>(Ljava/lang/String;)V
++
++    throw v0
++.end method
++
++.method public getConfigInterface()Lcom/android/ims/internal/IImsConfig;
++    .locals 1
++
++    .line 162
++    const/4 v0, 0x0
++
++    return-object v0
++.end method
++
++.method public getEcbmInterface()Landroid/telephony/ims/stub/ImsEcbmImplBase;
++    .locals 1
++
++    .line 175
++    const/4 v0, 0x0
++
++    return-object v0
++.end method
++
++.method public getFeatureState()I
++    .locals 1
++
++    .line 94
++    invoke-super {p0}, Landroid/telephony/ims/compat/feature/MMTelFeature;->getFeatureState()I
++
++    move-result v0
++
++    return v0
++.end method
++
++.method public getMultiEndpointInterface()Landroid/telephony/ims/stub/ImsMultiEndpointImplBase;
++    .locals 1
++
++    .line 190
++    const/4 v0, 0x0
++
++    return-object v0
++.end method
++
++.method public getPendingCallSession(ILjava/lang/String;)Lcom/android/ims/internal/IImsCallSession;
++    .locals 3
++
++    .line 139
++    iget v0, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mServiceId:I
++
++    if-ne p1, v0, :cond_1
++
++    .line 144
++    const/4 v1, -0x1
++
++    const/4 v2, 0x0
++
++    if-eq v0, v1, :cond_0
++
++    .line 146
++    :try_start_0
++    iget-object v0, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mMainSvc:Lcom/sec/internal/google/GoogleImsService;
++
++    invoke-virtual {v0, p1, p2}, Lcom/sec/internal/google/GoogleImsService;->getPendingCallSession(ILjava/lang/String;)Lcom/android/ims/internal/IImsCallSession;
++
++    move-result-object p1
++    :try_end_0
++    .catch Landroid/os/RemoteException; {:try_start_0 .. :try_end_0} :catch_0
++
++    return-object p1
++
++    .line 147
++    :catch_0
++    move-exception p1
++
++    .line 148
++    new-instance p2, Ljava/lang/StringBuilder;
++
++    invoke-direct {p2}, Ljava/lang/StringBuilder;-><init>()V
++
++    const-string v0, "getPendingCallSession: "
++
++    invoke-virtual {p2, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p2
++
++    invoke-virtual {p1}, Landroid/os/RemoteException;->getMessage()Ljava/lang/String;
++
++    move-result-object p1
++
++    invoke-virtual {p2, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
++
++    move-result-object p1
++
++    const-string p2, "ImsMmTelFeature"
++
++    invoke-static {p2, p1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
++
++    .line 149
++    return-object v2
++
++    .line 152
++    :cond_0
++    return-object v2
++
++    .line 140
++    :cond_1
++    new-instance p2, Ljava/lang/RuntimeException;
++
++    new-instance v0, Ljava/lang/StringBuilder;
++
++    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
++
++    const-string v1, "Provided session ID ("
++
++    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object v0
++
++    invoke-virtual {v0, p1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    const-string v0, ") does not match with the phone ID ("
++
++    invoke-virtual {p1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    iget v0, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mPhoneId:I
++
++    invoke-virtual {p1, v0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    const-string v0, ")\'s session ID ("
++
++    invoke-virtual {p1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    iget v0, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mServiceId:I
++
++    invoke-virtual {p1, v0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    const-string v0, ")"
++
++    invoke-virtual {p1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
++
++    move-result-object p1
++
++    invoke-direct {p2, p1}, Ljava/lang/RuntimeException;-><init>(Ljava/lang/String;)V
++
++    throw p2
++.end method
++
++.method public getUtInterface()Landroid/telephony/ims/stub/ImsUtImplBase;
++    .locals 1
++
++    .line 157
++    const/4 v0, 0x0
++
++    return-object v0
++.end method
++
++.method public isConnected(II)Z
++    .locals 2
++
++    .line 72
++    :try_start_0
++    iget-object v0, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mMainSvc:Lcom/sec/internal/google/GoogleImsService;
++
++    iget v1, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mServiceId:I
++
++    invoke-virtual {v0, v1, p1, p2}, Lcom/sec/internal/google/GoogleImsService;->isConnected(III)Z
++
++    move-result p1
++    :try_end_0
++    .catch Landroid/os/RemoteException; {:try_start_0 .. :try_end_0} :catch_0
++
++    return p1
++
++    .line 73
++    :catch_0
++    move-exception p1
++
++    .line 74
++    new-instance p2, Ljava/lang/StringBuilder;
++
++    invoke-direct {p2}, Ljava/lang/StringBuilder;-><init>()V
++
++    const-string v0, "isConnected: "
++
++    invoke-virtual {p2, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p2
++
++    invoke-virtual {p1}, Landroid/os/RemoteException;->getMessage()Ljava/lang/String;
++
++    move-result-object p1
++
++    invoke-virtual {p2, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
++
++    move-result-object p1
++
++    const-string p2, "ImsMmTelFeature"
++
++    invoke-static {p2, p1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
++
++    .line 75
++    const/4 p1, 0x0
++
++    return p1
++.end method
++
++.method public isOpened()Z
++    .locals 2
++
++    .line 80
++    iget v0, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mServiceId:I
++
++    const/4 v1, -0x1
++
++    if-eq v0, v1, :cond_0
++
++    .line 81
++    iget-object v1, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mMainSvc:Lcom/sec/internal/google/GoogleImsService;
++
++    invoke-virtual {v1, v0}, Lcom/sec/internal/google/GoogleImsService;->isOpened(I)Z
++
++    move-result v0
++
++    return v0
++
++    .line 83
++    :cond_0
++    const/4 v0, 0x0
++
++    return v0
++.end method
++
++.method public onFeatureRemoved()V
++    .locals 3
++
++    .line 194
++    iget v0, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mServiceId:I
++
++    const/4 v1, -0x1
++
++    if-eq v0, v1, :cond_0
++
++    .line 195
++    iget-object v2, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mMainSvc:Lcom/sec/internal/google/GoogleImsService;
++
++    invoke-virtual {v2, v0}, Lcom/sec/internal/google/GoogleImsService;->close(I)V
++
++    .line 196
++    iput v1, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mServiceId:I
++
++    .line 198
++    :cond_0
++    return-void
++.end method
++
++.method public removeRegistrationListener(Lcom/android/ims/internal/IImsRegistrationListener;)V
++    .locals 0
++
++    .line 103
++    return-void
++.end method
++
++.method public setUiTTYMode(ILandroid/os/Message;)V
++    .locals 2
++
++    .line 179
++    iget v0, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mServiceId:I
++
++    const/4 v1, -0x1
++
++    if-eq v0, v1, :cond_0
++
++    .line 181
++    :try_start_0
++    iget-object v1, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mMainSvc:Lcom/sec/internal/google/GoogleImsService;
++
++    invoke-virtual {v1, v0, p1, p2}, Lcom/sec/internal/google/GoogleImsService;->setUiTTYMode(IILandroid/os/Message;)V
++    :try_end_0
++    .catch Landroid/os/RemoteException; {:try_start_0 .. :try_end_0} :catch_0
++
++    .line 184
++    goto :goto_0
++
++    .line 182
++    :catch_0
++    move-exception p1
++
++    .line 183
++    new-instance p2, Ljava/lang/StringBuilder;
++
++    invoke-direct {p2}, Ljava/lang/StringBuilder;-><init>()V
++
++    const-string/jumbo v0, "setUiTTYMode: "
++
++    invoke-virtual {p2, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p2
++
++    invoke-virtual {p1}, Landroid/os/RemoteException;->getMessage()Ljava/lang/String;
++
++    move-result-object p1
++
++    invoke-virtual {p2, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
++
++    move-result-object p1
++
++    const-string p2, "ImsMmTelFeature"
++
++    invoke-static {p2, p1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
++
++    .line 186
++    :cond_0
++    :goto_0
++    return-void
++.end method
++
++.method public startSession(Landroid/app/PendingIntent;Lcom/android/ims/internal/IImsRegistrationListener;)I
++    .locals 3
++
++    const-string v0, "ImsMmTelFeature"
++
++    const-string v1, "DIAG startSession CALLED by framework"
++
++    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
++
++    .line 48
++    iget v0, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mServiceId:I
++
++    const/4 v1, -0x1
++
++    if-ne v0, v1, :cond_0
++
++    .line 50
++    :try_start_0
++    iget-object v0, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mMainSvc:Lcom/sec/internal/google/GoogleImsService;
++
++    iget v1, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mPhoneId:I
++
++    const/4 v2, 0x1
++
++    invoke-virtual {v0, v1, v2, p1, p2}, Lcom/sec/internal/google/GoogleImsService;->open(IILandroid/app/PendingIntent;Lcom/android/ims/internal/IImsRegistrationListener;)I
++
++    move-result p1
++
++    iput p1, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mServiceId:I
++    :try_end_0
++    .catch Landroid/os/RemoteException; {:try_start_0 .. :try_end_0} :catch_0
++
++    .line 53
++    goto :goto_0
++
++    .line 51
++    :catch_0
++    move-exception p1
++
++    .line 52
++    new-instance p2, Ljava/lang/StringBuilder;
++
++    invoke-direct {p2}, Ljava/lang/StringBuilder;-><init>()V
++
++    const-string/jumbo v0, "startSession: "
++
++    invoke-virtual {p2, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p2
++
++    invoke-virtual {p1}, Landroid/os/RemoteException;->getMessage()Ljava/lang/String;
++
++    move-result-object p1
++
++    invoke-virtual {p2, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    move-result-object p1
++
++    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
++
++    move-result-object p1
++
++    const-string p2, "ImsMmTelFeature"
++
++    invoke-static {p2, p1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
++
++    .line 55
++    :cond_0
++    :goto_0
++    iget p1, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mServiceId:I
++
++    return p1
++.end method
++
++.method public turnOffIms()V
++    .locals 2
++
++    .line 170
++    iget-object v0, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mMainSvc:Lcom/sec/internal/google/GoogleImsService;
++
++    iget v1, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mPhoneId:I
++
++    invoke-virtual {v0, v1}, Lcom/sec/internal/google/GoogleImsService;->turnOffIms(I)V
++
++    .line 171
++    return-void
++.end method
++
++.method public turnOnIms()V
++    .locals 2
++
++    .line 166
++    iget-object v0, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mMainSvc:Lcom/sec/internal/google/GoogleImsService;
++
++    iget v1, p0, Lcom/sec/internal/google/ImsMmtelFeature;->mPhoneId:I
++
++    invoke-virtual {v0, v1}, Lcom/sec/internal/google/GoogleImsService;->turnOnIms(I)V
++
++    .line 167
++    return-void
++.end method
+--- a/com/sec/internal/google/ImsNotifier.smali
++++ b/com/sec/internal/google/ImsNotifier.smali
+@@ -242,7 +242,13 @@
+ .end method
+ 
+ .method private notifyRegistrationListener(Lcom/sec/ims/ImsRegistration;ZLcom/sec/ims/ImsRegistrationError;Z)V
+-    .locals 5
++    .locals 7
++
++    const-string v5, "DIAGIMS"
++
++    const-string v6, "notifyRegistrationListener ENTER"
++
++    invoke-static {v5, v6}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+ 
+     .line 139
+     invoke-virtual {p1}, Lcom/sec/ims/ImsRegistration;->getPhoneId()I
+@@ -284,6 +290,12 @@
+ 
+     check-cast v2, Lcom/sec/internal/google/ServiceProfile;
+ 
++    const-string v5, "DIAGIMS"
++
++    const-string v6, "notifyRegistrationListener LOOP has-profile"
++
++    invoke-static {v5, v6}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
++
+     .line 142
+     invoke-virtual {v2}, Lcom/sec/internal/google/ServiceProfile;->getRegistrationListener()Lcom/android/ims/internal/IImsRegistrationListener;
+ 
+@@ -315,6 +327,12 @@
+ 
+     move-result v2
+ 
++    const-string v5, "DIAGIMS"
++
++    const-string v6, "FIRING registrationConnectedWithRadioTech"
++
++    invoke-static {v5, v6}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
++
+     invoke-interface {v3, v2}, Lcom/android/ims/internal/IImsRegistrationListener;->registrationConnectedWithRadioTech(I)V
+ 
+     if-eqz p4, :cond_0
+@@ -682,7 +700,13 @@
+ .end method
+ 
+ .method public notifyImsRegistration(Landroid/content/Context;Lcom/sec/ims/ImsRegistration;ZLcom/sec/ims/ImsRegistrationError;)V
+-    .locals 1
++    .locals 2
++
++    const-string v0, "DIAGIMS"
++
++    const-string v1, "notifyImsRegistration ENTER"
++
++    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+ 
+     .line 88
+     invoke-virtual {p2}, Lcom/sec/ims/ImsRegistration;->getImsProfile()Lcom/sec/ims/settings/ImsProfile;
+@@ -716,6 +740,12 @@
+ 
+     .line 90
+     :cond_0
++    invoke-virtual {p2}, Lcom/sec/ims/ImsRegistration;->getPhoneId()I
++
++    move-result v0
++
++    invoke-static {v0, p3}, Lcom/sec/internal/google/GoogleModernRegistration;->onImsRegistrationEvent(IZ)V
++
+     iget-object p1, p0, Lcom/sec/internal/google/ImsNotifier;->mGoogleImsService:Lcom/sec/internal/google/GoogleImsService;
+ 
+     invoke-virtual {p2}, Lcom/sec/ims/ImsRegistration;->getPhoneId()I
+@@ -901,7 +931,7 @@
+     const/4 v1, 0x0
+ 
+     .line 167
+-    invoke-static {v0, v1}, Landroid/os/SemSystemProperties;->getBoolean(Ljava/lang/String;Z)Z
++    invoke-static {v0, v1}, Landroid/os/SystemProperties;->getBoolean(Ljava/lang/String;Z)Z
+ 
+     move-result v0
+ 
+@@ -1075,37 +1105,10 @@
+     .line 202
+     :cond_5
+     :goto_1
+-    :try_start_1
+-    iget-object v1, p0, Lcom/sec/internal/google/ImsNotifier;->mGoogleImsService:Lcom/sec/internal/google/GoogleImsService;
+-
+-    iget-object v1, v1, Lcom/sec/internal/google/GoogleImsService;->mSecMmtelListener:Ljava/util/Map;
+-
+-    invoke-static {p1}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+-
+-    move-result-object v2
+-
+-    invoke-interface {v1, v2}, Ljava/util/Map;->get(Ljava/lang/Object;)Ljava/lang/Object;
+-
+-    move-result-object v1
+-
+-    check-cast v1, Lcom/android/ims/internal/ISecImsMmTelEventListener;
+-
+     invoke-virtual {v3}, Landroid/content/Intent;->getExtras()Landroid/os/Bundle;
+-
+-    move-result-object v2
+-
+-    invoke-interface {v1, p2, v2}, Lcom/android/ims/internal/ISecImsMmTelEventListener;->onIncomingCall(ILandroid/os/Bundle;)V
+-    :try_end_1
+-    .catch Landroid/os/RemoteException; {:try_start_1 .. :try_end_1} :catch_1
+-
+-    goto/16 :goto_0
+-
+-    :catch_1
+-    move-exception v1
+-
+-    .line 204
+-    invoke-virtual {v1}, Landroid/os/RemoteException;->printStackTrace()V
+-
++    move-result-object v1
++    iget-object v2, p0, Lcom/sec/internal/google/ImsNotifier;->mGoogleImsService:Lcom/sec/internal/google/GoogleImsService;
++    invoke-static {v2, p1, p2, v1}, Lcom/sec/internal/google/ApIncomingCallBridge;->notifyIncoming(Ljava/lang/Object;IILandroid/os/Bundle;)V
+     goto/16 :goto_0
+ 
+     :cond_6
+--- a/com/sec/internal/google/ImsSmsImpl$SmsEventListener.smali
++++ b/com/sec/internal/google/ImsSmsImpl$SmsEventListener.smali
+@@ -533,9 +533,7 @@
+     invoke-static {p0}, Lcom/sec/internal/google/ImsSmsImpl;->-$$Nest$fgetmSmsListener(Lcom/sec/internal/google/ImsSmsImpl;)Landroid/telephony/ims/aidl/IImsSmsListener;
+ 
+     move-result-object p0
+-
+-    invoke-interface {p0, p1, p2}, Landroid/telephony/ims/aidl/IImsSmsListener;->onReceiveSmsDeliveryReportAck(II)V
+-
++    # vendor delivery-report ack omitted on AOSP IImsSmsListener
+     return-void
+ 
+     .line 312
+--- a/com/sec/internal/google/ImsSmsImpl.smali
++++ b/com/sec/internal/google/ImsSmsImpl.smali
+@@ -130,6 +130,8 @@
+ 
+ .field private mCurrentNetworkType:I
+ 
++.field private mModernActiveSmsToken:I
++
+ .field private final mDeliveryPendingList:Ljava/util/ArrayList;
+     .annotation system Ldalvik/annotation/Signature;
+         value = {
+@@ -707,7 +709,7 @@
+ 
+     iget v2, p0, Lcom/sec/internal/google/ImsSmsImpl;->mPhoneId:I
+ 
+-    invoke-virtual {v1, v2}, Landroid/telephony/TelephonyManager;->semGetServiceState(I)Landroid/telephony/ServiceState;
++    invoke-virtual {v1}, Landroid/telephony/TelephonyManager;->getServiceState()Landroid/telephony/ServiceState;
+ 
+     move-result-object v2
+ 
+@@ -769,7 +771,7 @@
+     :cond_8
+     iget p1, p0, Lcom/sec/internal/google/ImsSmsImpl;->mPhoneId:I
+ 
+-    invoke-virtual {v1, p1}, Landroid/telephony/TelephonyManager;->semGetServiceState(I)Landroid/telephony/ServiceState;
++    invoke-virtual {v1}, Landroid/telephony/TelephonyManager;->getServiceState()Landroid/telephony/ServiceState;
+ 
+     move-result-object p1
+ 
+@@ -798,7 +800,7 @@
+ 
+     iget v3, p0, Lcom/sec/internal/google/ImsSmsImpl;->mPhoneId:I
+ 
+-    invoke-virtual {v1, v3}, Landroid/telephony/TelephonyManager;->semGetServiceState(I)Landroid/telephony/ServiceState;
++    invoke-virtual {v1}, Landroid/telephony/TelephonyManager;->getServiceState()Landroid/telephony/ServiceState;
+ 
+     move-result-object v3
+ 
+@@ -817,7 +819,7 @@
+     .line 1342
+     iget p1, p0, Lcom/sec/internal/google/ImsSmsImpl;->mPhoneId:I
+ 
+-    invoke-virtual {v1, p1}, Landroid/telephony/TelephonyManager;->semGetServiceState(I)Landroid/telephony/ServiceState;
++    invoke-virtual {v1}, Landroid/telephony/TelephonyManager;->getServiceState()Landroid/telephony/ServiceState;
+ 
+     move-result-object p1
+ 
+@@ -1003,7 +1005,7 @@
+     :cond_4
+     iget v2, p0, Lcom/sec/internal/google/ImsSmsImpl;->mPhoneId:I
+ 
+-    invoke-virtual {v1, v2}, Landroid/telephony/TelephonyManager;->semGetServiceState(I)Landroid/telephony/ServiceState;
++    invoke-virtual {v1}, Landroid/telephony/TelephonyManager;->getServiceState()Landroid/telephony/ServiceState;
+ 
+     move-result-object v2
+ 
+@@ -1032,7 +1034,7 @@
+ 
+     iget v4, p0, Lcom/sec/internal/google/ImsSmsImpl;->mPhoneId:I
+ 
+-    invoke-virtual {v1, v4}, Landroid/telephony/TelephonyManager;->semGetServiceState(I)Landroid/telephony/ServiceState;
++    invoke-virtual {v1}, Landroid/telephony/TelephonyManager;->getServiceState()Landroid/telephony/ServiceState;
+ 
+     move-result-object v4
+ 
+@@ -1051,7 +1053,7 @@
+     .line 1376
+     iget v2, p0, Lcom/sec/internal/google/ImsSmsImpl;->mPhoneId:I
+ 
+-    invoke-virtual {v1, v2}, Landroid/telephony/TelephonyManager;->semGetServiceState(I)Landroid/telephony/ServiceState;
++    invoke-virtual {v1}, Landroid/telephony/TelephonyManager;->getServiceState()Landroid/telephony/ServiceState;
+ 
+     move-result-object v1
+ 
+@@ -1238,59 +1240,45 @@
+ .end method
+ 
+ .method private getTokenByMessageId(I)I
+-    .locals 2
+-
+-    .line 439
+-    iget-object p0, p0, Lcom/sec/internal/google/ImsSmsImpl;->mImsSmsTrackers:Ljava/util/Map;
+-
+-    invoke-interface {p0}, Ljava/util/Map;->entrySet()Ljava/util/Set;
+-
+-    move-result-object p0
+-
+-    invoke-interface {p0}, Ljava/util/Set;->iterator()Ljava/util/Iterator;
+-
+-    move-result-object p0
+-
+-    .line 440
+-    :cond_0
+-    invoke-interface {p0}, Ljava/util/Iterator;->hasNext()Z
+-
+-    move-result v0
+-
+-    if-eqz v0, :cond_1
+-
+-    .line 441
+-    invoke-interface {p0}, Ljava/util/Iterator;->next()Ljava/lang/Object;
++    .locals 4
+ 
++    move-object v3, p0
++    iget-object v0, v3, Lcom/sec/internal/google/ImsSmsImpl;->mImsSmsTrackers:Ljava/util/Map;
++    invoke-interface {v0}, Ljava/util/Map;->entrySet()Ljava/util/Set;
+     move-result-object v0
+-
+-    check-cast v0, Ljava/util/Map$Entry;
+-
+-    .line 442
+-    invoke-interface {v0}, Ljava/util/Map$Entry;->getValue()Ljava/lang/Object;
+-
++    invoke-interface {v0}, Ljava/util/Set;->iterator()Ljava/util/Iterator;
+     move-result-object v0
+ 
+-    check-cast v0, Lcom/sec/internal/google/ImsSmsImpl$ImsSmsTracker;
+-
+-    .line 443
+-    invoke-virtual {v0}, Lcom/sec/internal/google/ImsSmsImpl$ImsSmsTracker;->getMessageId()I
+-
++    :tracker_loop
++    invoke-interface {v0}, Ljava/util/Iterator;->hasNext()Z
+     move-result v1
++    if-eqz v1, :tracker_fallback
++    invoke-interface {v0}, Ljava/util/Iterator;->next()Ljava/lang/Object;
++    move-result-object v1
++    check-cast v1, Ljava/util/Map$Entry;
++    invoke-interface {v1}, Ljava/util/Map$Entry;->getValue()Ljava/lang/Object;
++    move-result-object v1
++    check-cast v1, Lcom/sec/internal/google/ImsSmsImpl$ImsSmsTracker;
++    invoke-virtual {v1}, Lcom/sec/internal/google/ImsSmsImpl$ImsSmsTracker;->getMessageId()I
++    move-result v2
++    if-ne p1, v2, :tracker_loop
++    invoke-virtual {v1}, Lcom/sec/internal/google/ImsSmsImpl$ImsSmsTracker;->getToken()I
++    move-result v0
++    return v0
+ 
+-    if-ne p1, v1, :cond_0
+-
+-    .line 444
+-    invoke-virtual {v0}, Lcom/sec/internal/google/ImsSmsImpl$ImsSmsTracker;->getToken()I
+-
+-    move-result p0
+-
+-    return p0
+-
+-    :cond_1
+-    const/4 p0, -0x1
++    :tracker_fallback
++    iget v0, v3, Lcom/sec/internal/google/ImsSmsImpl;->mModernActiveSmsToken:I
++    iget-object v1, v3, Lcom/sec/internal/google/ImsSmsImpl;->mImsSmsTrackers:Ljava/util/Map;
++    invoke-static {v0}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
++    move-result-object v2
++    invoke-interface {v1, v2}, Ljava/util/Map;->containsKey(Ljava/lang/Object;)Z
++    move-result v1
++    if-eqz v1, :tracker_not_found
++    return v0
+ 
+-    return p0
++    :tracker_not_found
++    const/4 v0, -0x1
++    return v0
+ .end method
+ 
+ .method private handleAck(Lcom/sec/internal/constants/Mno;IIILcom/sec/internal/constants/ims/servicemodules/sms/SmsResponse;Lcom/sec/internal/google/ImsSmsImpl$ImsSmsTracker;ZI)V
+@@ -1783,7 +1771,7 @@
+ 
+     move v6, v8
+ 
+-    invoke-interface/range {v0 .. v6}, Landroid/telephony/ims/aidl/IImsSmsListener;->onSendSmsResponse(IIIIII)V
++    invoke-interface/range {v0 .. v5}, Landroid/telephony/ims/aidl/IImsSmsListener;->onSendSmsResult(IIIII)V
+ 
+     goto/16 :goto_0
+ 
+@@ -1801,7 +1789,7 @@
+ 
+     move v6, v8
+ 
+-    invoke-interface/range {v0 .. v6}, Landroid/telephony/ims/aidl/IImsSmsListener;->onSendSmsResponse(IIIIII)V
++    invoke-interface/range {v0 .. v5}, Landroid/telephony/ims/aidl/IImsSmsListener;->onSendSmsResult(IIIII)V
+ 
+     goto :goto_0
+ 
+@@ -1819,7 +1807,7 @@
+ 
+     move v6, v8
+ 
+-    invoke-interface/range {v0 .. v6}, Landroid/telephony/ims/aidl/IImsSmsListener;->onSendSmsResponse(IIIIII)V
++    invoke-interface/range {v0 .. v5}, Landroid/telephony/ims/aidl/IImsSmsListener;->onSendSmsResult(IIIII)V
+ 
+     goto :goto_0
+ 
+@@ -1853,7 +1841,7 @@
+ 
+     move v6, v8
+ 
+-    invoke-interface/range {v0 .. v6}, Landroid/telephony/ims/aidl/IImsSmsListener;->onSendSmsResponse(IIIIII)V
++    invoke-interface/range {v0 .. v5}, Landroid/telephony/ims/aidl/IImsSmsListener;->onSendSmsResult(IIIII)V
+ 
+     goto :goto_0
+ 
+@@ -1871,7 +1859,7 @@
+ 
+     move v6, v8
+ 
+-    invoke-interface/range {v0 .. v6}, Landroid/telephony/ims/aidl/IImsSmsListener;->onSendSmsResponse(IIIIII)V
++    invoke-interface/range {v0 .. v5}, Landroid/telephony/ims/aidl/IImsSmsListener;->onSendSmsResult(IIIII)V
+ 
+     goto :goto_0
+ 
+@@ -1895,7 +1883,7 @@
+ 
+     move v6, v8
+ 
+-    invoke-interface/range {v0 .. v6}, Landroid/telephony/ims/aidl/IImsSmsListener;->onSendSmsResponse(IIIIII)V
++    invoke-interface/range {v0 .. v5}, Landroid/telephony/ims/aidl/IImsSmsListener;->onSendSmsResult(IIIII)V
+ 
+     goto :goto_0
+ 
+@@ -1915,7 +1903,7 @@
+ 
+     move v6, v8
+ 
+-    invoke-interface/range {v0 .. v6}, Landroid/telephony/ims/aidl/IImsSmsListener;->onSendSmsResponse(IIIIII)V
++    invoke-interface/range {v0 .. v5}, Landroid/telephony/ims/aidl/IImsSmsListener;->onSendSmsResult(IIIII)V
+ 
+     .line 1267
+     :goto_0
+@@ -2734,7 +2722,7 @@
+ 
+     move v2, v8
+ 
+-    invoke-interface/range {v0 .. v6}, Landroid/telephony/ims/aidl/IImsSmsListener;->onSendSmsResponse(IIIIII)V
++    invoke-interface/range {v0 .. v5}, Landroid/telephony/ims/aidl/IImsSmsListener;->onSendSmsResult(IIIII)V
+ 
+     .line 395
+     iget-object p1, p0, Lcom/sec/internal/google/ImsSmsImpl;->mSmsLogger:Lcom/sec/internal/ims/servicemodules/sms/SmsLogger;
+@@ -4730,6 +4718,9 @@
+     if-gt v2, v3, :cond_0
+ 
+     .line 542
++    iget v3, p1, Lcom/sec/internal/google/ImsSmsImpl$ImsSmsTracker;->mToken:I
++    iput v3, p0, Lcom/sec/internal/google/ImsSmsImpl;->mModernActiveSmsToken:I
++
+     iget-object v2, p0, Lcom/sec/internal/google/ImsSmsImpl;->mSmsServiceModule:Lcom/sec/internal/interfaces/ims/servicemodules/sms/ISmsServiceModule;
+ 
+     iget v3, p1, Lcom/sec/internal/google/ImsSmsImpl$ImsSmsTracker;->mPhoneId:I
+@@ -4750,6 +4741,9 @@
+     if-eqz p2, :cond_1
+ 
+     .line 546
++    iget v3, p1, Lcom/sec/internal/google/ImsSmsImpl$ImsSmsTracker;->mToken:I
++    iput v3, p0, Lcom/sec/internal/google/ImsSmsImpl;->mModernActiveSmsToken:I
++
+     iget-object v2, p0, Lcom/sec/internal/google/ImsSmsImpl;->mSmsServiceModule:Lcom/sec/internal/interfaces/ims/servicemodules/sms/ISmsServiceModule;
+ 
+     iget v3, p1, Lcom/sec/internal/google/ImsSmsImpl$ImsSmsTracker;->mPhoneId:I
+@@ -6249,7 +6243,7 @@
+ 
+     move v7, v0
+ 
+-    invoke-interface/range {v1 .. v7}, Landroid/telephony/ims/aidl/IImsSmsListener;->onSendSmsResponse(IIIIII)V
++    invoke-interface/range {v1 .. v6}, Landroid/telephony/ims/aidl/IImsSmsListener;->onSendSmsResult(IIIII)V
+ 
+     .line 528
+     iget-object v0, v9, Lcom/sec/internal/google/ImsSmsImpl;->mSmsLogger:Lcom/sec/internal/ims/servicemodules/sms/SmsLogger;
+--- a/com/sec/internal/ims/core/PdnController.smali
++++ b/com/sec/internal/ims/core/PdnController.smali
+@@ -661,65 +661,17 @@
+ .end method
+ 
+ .method private getCellIdentityFromSemTelephony(I)Landroid/telephony/CellIdentity;
+-    .locals 3
++    .locals 2
+ 
+-    .line 324
+-    invoke-static {}, Lcom/sec/internal/ims/util/ImsUtil;->getISemTelephony()Lcom/android/internal/telephony/ISemTelephony;
+-
+-    move-result-object v0
+-
+-    const/4 v1, 0x0
+-
+-    if-nez v0, :cond_0
+-
+-    .line 326
+     sget-object p0, Lcom/sec/internal/ims/core/PdnController;->LOG_TAG:Ljava/lang/String;
+ 
+-    const-string p1, "Unable to find ISemTelephony interface."
+-
+-    invoke-static {p0, p1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
+-
+-    return-object v1
++    const-string p1, "getCellIdentityFromSemTelephony: AOSP fallback"
+ 
+-    .line 330
+-    :cond_0
+-    invoke-static {p1}, Lcom/sec/internal/helper/SimUtil;->getSubId(I)I
+-
+-    move-result p1
+-
+-    .line 333
+-    :try_start_0
+-    iget-object v2, p0, Lcom/sec/internal/ims/core/PdnController;->mContext:Landroid/content/Context;
+-
+-    invoke-virtual {v2}, Landroid/content/Context;->getOpPackageName()Ljava/lang/String;
+-
+-    move-result-object v2
++    invoke-static {p0, p1}, Landroid/util/Log;->d(Ljava/lang/String;Ljava/lang/String;)I
+ 
+-    iget-object p0, p0, Lcom/sec/internal/ims/core/PdnController;->mContext:Landroid/content/Context;
+-
+-    .line 334
+-    invoke-virtual {p0}, Landroid/content/Context;->getAttributionTag()Ljava/lang/String;
+-
+-    move-result-object p0
+-
+-    .line 333
+-    invoke-interface {v0, p1, v2, p0}, Lcom/android/internal/telephony/ISemTelephony;->getCellLocationBySubId(ILjava/lang/String;Ljava/lang/String;)Landroid/telephony/CellIdentity;
+-
+-    move-result-object v1
+-    :try_end_0
+-    .catch Ljava/lang/IllegalArgumentException; {:try_start_0 .. :try_end_0} :catch_0
+-    .catch Landroid/os/RemoteException; {:try_start_0 .. :try_end_0} :catch_0
+-
+-    goto :goto_0
+-
+-    :catch_0
+-    move-exception p0
+-
+-    .line 336
+-    invoke-virtual {p0}, Ljava/lang/Exception;->printStackTrace()V
++    const/4 p0, 0x0
+ 
+-    :goto_0
+-    return-object v1
++    return-object p0
+ .end method
+ 
+ .method private getDnsServers(Landroid/net/LinkProperties;)Ljava/util/List;
+@@ -1135,7 +1087,7 @@
+     const-string p3, ""
+ 
+     .line 833
+-    invoke-static {p1, p3}, Landroid/os/SemSystemProperties;->get(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
++    invoke-static {p1, p3}, Landroid/os/SystemProperties;->get(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+ 
+     move-result-object p1
+ 
+--- a/com/sec/internal/ims/core/RegistrationGovernorBase.smali
++++ b/com/sec/internal/ims/core/RegistrationGovernorBase.smali
+@@ -6720,46 +6720,14 @@
+ .end method
+ 
+ .method protected sendVolteState(ZI)V
+-    .locals 0
+-
+-    .line 1246
+-    invoke-static {p2}, Lcom/sec/internal/helper/SimUtil;->getSubId(I)I
+-
+-    move-result p0
+-
+-    .line 1248
+-    :try_start_0
+-    invoke-static {}, Lcom/sec/internal/ims/util/ImsUtil;->getISemTelephony()Lcom/android/internal/telephony/ISemTelephony;
+-
+-    move-result-object p2
+-
+-    if-nez p2, :cond_0
++    .locals 2
+ 
+     const-string p0, "RegiGvnBase"
+ 
+-    const-string p1, "Unable to find ISemTelephony interface."
+-
+-    .line 1250
+-    invoke-static {p0, p1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
+-
+-    return-void
+-
+-    .line 1253
+-    :cond_0
+-    invoke-interface {p2, p0, p1}, Lcom/android/internal/telephony/ISemTelephony;->sendVolteState(IZ)V
+-    :try_end_0
+-    .catch Ljava/lang/NullPointerException; {:try_start_0 .. :try_end_0} :catch_0
+-    .catch Landroid/os/RemoteException; {:try_start_0 .. :try_end_0} :catch_0
+-
+-    goto :goto_0
+-
+-    :catch_0
+-    move-exception p0
++    const-string p1, "sendVolteState: AOSP fallback"
+ 
+-    .line 1255
+-    invoke-virtual {p0}, Ljava/lang/Exception;->printStackTrace()V
++    invoke-static {p0, p1}, Landroid/util/Log;->d(Ljava/lang/String;Ljava/lang/String;)I
+ 
+-    :goto_0
+     return-void
+ .end method
+ 
+--- a/com/sec/internal/ims/core/handler/secims/RegistrationRequestBuilder.smali
++++ b/com/sec/internal/ims/core/handler/secims/RegistrationRequestBuilder.smali
+@@ -2390,6 +2390,12 @@
+ 
+     move-result v4
+ 
++    invoke-static {v4}, Lcom/sec/internal/google/ApDualImsDiag;->effectiveConfig(I)I
++
++    move-result v4
++
++    invoke-static {v4}, Lcom/sec/internal/google/ApDualImsDiag;->onUaConfig(I)V
++
+     int-to-long v4, v4
+ 
+     invoke-static {v0, v4, v5}, Lcom/sec/internal/ims/core/handler/secims/imsCommonStruc/Request_/RequestUACreation;->addConfigDualIms(Lcom/google/flatbuffers/FlatBufferBuilder;J)V
+--- a/com/sec/internal/ims/core/handler/secims/ResipMediaHandler.smali
++++ b/com/sec/internal/ims/core/handler/secims/ResipMediaHandler.smali
+@@ -2175,6 +2175,8 @@
+ .method public saeCreateChannel(IILjava/lang/String;ILjava/lang/String;IIILjava/lang/String;ZZ)I
+     .locals 12
+ 
++    invoke-static/range {p1 .. p11}, Lcom/sec/internal/google/ApMediaNegotiationPoc;->onCreateFull(IILjava/lang/String;ILjava/lang/String;IIILjava/lang/String;ZZ)V
++
+     move-object v0, p0
+ 
+     .line 820
+@@ -2212,6 +2214,8 @@
+ .method public saeDeleteChannel(I)I
+     .locals 0
+ 
++    invoke-static {p1}, Lcom/sec/internal/google/ApMediaNegotiationPoc;->onDelete(I)V
++
+     .line 847
+     iget-object p0, p0, Lcom/sec/internal/ims/core/handler/secims/ResipMediaHandler;->mSveManager:Lcom/sec/sve/SecVideoEngineManager;
+ 
+@@ -2366,6 +2370,8 @@
+ .method public saeSetCodecInfo(ILjava/lang/String;IIIIIIZIIIIICCCCCCIILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I
+     .locals 31
+ 
++    invoke-static/range {p1 .. p10}, Lcom/sec/internal/google/ApMediaNegotiationPoc;->onCodecFull(ILjava/lang/String;IIIIIIZI)V
++
+     move/from16 v1, p1
+ 
+     move-object/from16 v2, p2
+@@ -2566,6 +2572,8 @@
+ .method public saeStartChannel(IIZ)I
+     .locals 0
+ 
++    invoke-static {p1, p2, p3}, Lcom/sec/internal/google/ApMediaNegotiationPoc;->onStartFull(IIZ)V
++
+     .line 826
+     iget-object p0, p0, Lcom/sec/internal/ims/core/handler/secims/ResipMediaHandler;->mSveManager:Lcom/sec/sve/SecVideoEngineManager;
+ 
+@@ -2592,6 +2600,8 @@
+ .method public saeStopChannel(I)I
+     .locals 0
+ 
++    invoke-static {p1}, Lcom/sec/internal/google/ApMediaNegotiationPoc;->onStop(I)V
++
+     .line 837
+     iget-object p0, p0, Lcom/sec/internal/ims/core/handler/secims/ResipMediaHandler;->mSveManager:Lcom/sec/sve/SecVideoEngineManager;
+ 
+@@ -2618,6 +2628,8 @@
+ .method public saeUpdateChannel(IILjava/lang/String;ILjava/lang/String;III)I
+     .locals 9
+ 
++    invoke-static/range {p1 .. p8}, Lcom/sec/internal/google/ApMediaNegotiationPoc;->onUpdateFull(IILjava/lang/String;ILjava/lang/String;III)V
++
+     move-object v0, p0
+ 
+     .line 832
+@@ -2978,7 +2990,7 @@
+     const-string p1, "persist.ims.salescode.sve"
+ 
+     .line 415
+-    invoke-static {p1, p0}, Landroid/os/SemSystemProperties;->set(Ljava/lang/String;Ljava/lang/String;)V
++    invoke-static {p1, p0}, Landroid/os/SystemProperties;->set(Ljava/lang/String;Ljava/lang/String;)V
+ 
+     .line 416
+     invoke-virtual {v0, p2, p3}, Lcom/sec/internal/ims/core/handler/secims/UserAgent;->startCamera(II)V
+--- a/com/sec/internal/ims/core/handler/secims/ResipRegistrationManager.smali
++++ b/com/sec/internal/ims/core/handler/secims/ResipRegistrationManager.smali
+@@ -122,7 +122,7 @@
+ .end method
+ 
+ .method private configureMedia(Lcom/sec/ims/settings/ImsProfile;)Lcom/sec/internal/ims/core/handler/secims/CallProfile;
+-    .locals 6
++    .locals 7
+ 
+     const-string v0, "ResipRegiMgr"
+ 
+@@ -748,16 +748,90 @@
+ 
+     move-result v2
+ 
+-    invoke-virtual {p0, v2}, Lcom/sec/internal/ims/core/handler/secims/CallProfile$Builder;->setRtpTimeout(I)Lcom/sec/internal/ims/core/handler/secims/CallProfile$Builder;
+-
+-    move-result-object p0
+-
+     .line 473
+     invoke-virtual {p1}, Lcom/sec/ims/settings/ImsProfile;->getRTCPTimeout()I
+ 
+-    move-result v2
++    move-result v3
++
++    const-string v4, "persist.vendor.ims.ap_media_timeout"
++
++    const/16 v5, 0x7ffe
++
++    invoke-static {v4, v5}, Landroid/os/SystemProperties;->getInt(Ljava/lang/String;I)I
++
++    move-result v4
++
++    const/16 v5, 0x1e
++
++    if-lt v4, v5, :cond_ap_media_timeout_default
++
++    const/16 v5, 0x7ffe
++
++    if-gt v4, v5, :cond_ap_media_timeout_default
++
++    move v5, v4
++
++    move v6, v4
++
++    goto :goto_ap_media_timeout_final
++
++    :cond_ap_media_timeout_default
++    const/16 v5, 0x7ffe
++
++    move v6, v5
++
++    :goto_ap_media_timeout_final
++    new-instance v0, Ljava/lang/StringBuilder;
++
++    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
++
++    const-string v1, "AP_MEDIA_TIMEOUT originalRtp="
++
++    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    const-string v1, " originalRtcp="
++
++    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    const-string v1, " property="
++
++    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    invoke-virtual {v0, v4}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    const-string v1, " finalRtp="
++
++    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    invoke-virtual {v0, v5}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    const-string v1, " finalRtcp="
++
++    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
++
++    invoke-virtual {v0, v6}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
++
++    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
++
++    move-result-object v0
++
++    const-string v1, "ResipRegiMgr"
++
++    invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
++
++    const/4 v0, 0x0
++
++    const/4 v1, 0x1
++
++    invoke-virtual {p0, v5}, Lcom/sec/internal/ims/core/handler/secims/CallProfile$Builder;->setRtpTimeout(I)Lcom/sec/internal/ims/core/handler/secims/CallProfile$Builder;
++
++    move-result-object p0
+ 
+-    invoke-virtual {p0, v2}, Lcom/sec/internal/ims/core/handler/secims/CallProfile$Builder;->setRtcpTimeout(I)Lcom/sec/internal/ims/core/handler/secims/CallProfile$Builder;
++    invoke-virtual {p0, v6}, Lcom/sec/internal/ims/core/handler/secims/CallProfile$Builder;->setRtcpTimeout(I)Lcom/sec/internal/ims/core/handler/secims/CallProfile$Builder;
+ 
+     move-result-object p0
+ 
+@@ -2717,7 +2791,7 @@
+     const-string v14, "ro.boot.hardware"
+ 
+     .line 730
+-    invoke-static {v14, v0}, Landroid/os/SemSystemProperties;->get(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
++    invoke-static {v14, v0}, Landroid/os/SystemProperties;->get(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+ 
+     move-result-object v0
+ 
+--- a/com/sec/internal/ims/core/handler/secims/ResipVolteHandler.smali
++++ b/com/sec/internal/ims/core/handler/secims/ResipVolteHandler.smali
+@@ -4738,6 +4738,7 @@
+ 
+     .line 2201
+     :goto_0
++
+     invoke-static {v6}, Lcom/sec/internal/helper/SimUtil;->getSimMno(I)Lcom/sec/internal/constants/Mno;
+ 
+     move-result-object v7
+@@ -6565,6 +6566,8 @@
+ 
+     long-to-int p1, v3
+ 
++    invoke-static {v1, v2, p1}, Lcom/sec/internal/google/ApDedicatedBearerPoc;->onRaw(III)V
++
+     invoke-direct {v0, v1, v2, p1}, Lcom/sec/internal/ims/servicemodules/volte2/data/DedicatedBearerEvent;-><init>(III)V
+ 
+     .line 2535
+--- a/com/sec/internal/ims/servicemodules/volte2/ImsReadyToCall.smali
++++ b/com/sec/internal/ims/servicemodules/volte2/ImsReadyToCall.smali
+@@ -3988,8 +3988,24 @@
+ 
+     move-result p1
+ 
++    invoke-virtual {v1}, Lcom/sec/internal/ims/servicemodules/volte2/data/CallSetupData;->getCallType()I
++
++    move-result v2
++
++    invoke-virtual {v1}, Lcom/sec/internal/ims/servicemodules/volte2/data/CallSetupData;->isEmergency()Z
++
++    move-result v3
++
++    invoke-static {v0, p1, v2, v3}, Lcom/sec/internal/google/ApEpsOnlyDiag;->effectiveCallSetup(IZIZ)Z
++
++    move-result p1
++
+     invoke-virtual {v1, p1}, Lcom/sec/internal/ims/servicemodules/volte2/data/CallSetupData;->setLteEpsOnlyAttached(Z)V
+ 
++    invoke-static {v0, p1}, Lcom/sec/internal/google/ApEpsOnlyDiag;->onCallSetup(IZ)V
++
++    invoke-static {}, Lcom/sec/internal/google/ApDualImsDiag;->onCallSnapshot()V
++
+     .line 316
+     iget-object p1, p0, Lcom/sec/internal/ims/servicemodules/volte2/CallState;->mSession:Lcom/sec/internal/ims/servicemodules/volte2/ImsCallSession;
+ 
+@@ -4836,6 +4852,12 @@
+ 
+     .line 158
+     :cond_0
++    invoke-static {v0}, Landroid/text/TextUtils;->isEmpty(Ljava/lang/CharSequence;)Z
++
++    move-result v1
++
++    if-nez v1, :cond_3
++
+     invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+ 
+     move-result v1
+--- a/com/sec/internal/ims/servicemodules/volte2/NetworkStatsOnPortHandler.smali
++++ b/com/sec/internal/ims/servicemodules/volte2/NetworkStatsOnPortHandler.smali
+@@ -487,137 +487,11 @@
+ 
+ # virtual methods
+ .method public declared-synchronized getNetworkStatsVideoCall()J
+-    .locals 10
++    .locals 2
+ 
+-    monitor-enter p0
++    const-wide/16 v0, 0x0
+ 
+-    :try_start_0
+-    const-string v0, "network_management"
+-
+-    .line 146
+-    invoke-static {v0}, Landroid/os/ServiceManager;->getService(Ljava/lang/String;)Landroid/os/IBinder;
+-
+-    move-result-object v0
+-
+-    .line 145
+-    invoke-static {v0}, Landroid/os/INetworkManagementService$Stub;->asInterface(Landroid/os/IBinder;)Landroid/os/INetworkManagementService;
+-
+-    move-result-object v0
+-    :try_end_0
+-    .catchall {:try_start_0 .. :try_end_0} :catchall_0
+-
+-    const-wide/16 v1, 0x0
+-
+-    if-eqz v0, :cond_0
+-
+-    .line 152
+-    :try_start_1
+-    iget-object v3, p0, Lcom/sec/internal/ims/servicemodules/volte2/NetworkStatsOnPortHandler;->mIface:Ljava/lang/String;
+-
+-    iget v4, p0, Lcom/sec/internal/ims/servicemodules/volte2/NetworkStatsOnPortHandler;->mLocalVideoRtp:I
+-
+-    iget v5, p0, Lcom/sec/internal/ims/servicemodules/volte2/NetworkStatsOnPortHandler;->mRemoteVideoRtp:I
+-
+-    invoke-interface {v0, v3, v4, v5}, Landroid/os/INetworkManagementService;->getNetworkStatsVideoCall(Ljava/lang/String;II)J
+-
+-    move-result-wide v3
+-    :try_end_1
+-    .catch Landroid/os/RemoteException; {:try_start_1 .. :try_end_1} :catch_1
+-    .catch Ljava/lang/IllegalStateException; {:try_start_1 .. :try_end_1} :catch_1
+-    .catchall {:try_start_1 .. :try_end_1} :catchall_0
+-
+-    .line 153
+-    :try_start_2
+-    iget-object v5, p0, Lcom/sec/internal/ims/servicemodules/volte2/NetworkStatsOnPortHandler;->mIface:Ljava/lang/String;
+-
+-    iget v6, p0, Lcom/sec/internal/ims/servicemodules/volte2/NetworkStatsOnPortHandler;->mLocalVideoRtcp:I
+-
+-    iget v7, p0, Lcom/sec/internal/ims/servicemodules/volte2/NetworkStatsOnPortHandler;->mRemoteVideoRtcp:I
+-
+-    invoke-interface {v0, v5, v6, v7}, Landroid/os/INetworkManagementService;->getNetworkStatsVideoCall(Ljava/lang/String;II)J
+-
+-    move-result-wide v1
+-    :try_end_2
+-    .catch Landroid/os/RemoteException; {:try_start_2 .. :try_end_2} :catch_0
+-    .catch Ljava/lang/IllegalStateException; {:try_start_2 .. :try_end_2} :catch_0
+-    .catchall {:try_start_2 .. :try_end_2} :catchall_0
+-
+-    move-wide v8, v1
+-
+-    move-wide v1, v3
+-
+-    move-wide v3, v8
+-
+-    goto :goto_1
+-
+-    :catch_0
+-    move-exception v0
+-
+-    goto :goto_0
+-
+-    :catch_1
+-    move-exception v0
+-
+-    move-wide v3, v1
+-
+-    .line 156
+-    :goto_0
+-    :try_start_3
+-    invoke-virtual {v0}, Ljava/lang/Exception;->printStackTrace()V
+-
+-    goto :goto_2
+-
+-    :cond_0
+-    move-wide v3, v1
+-
+-    :goto_1
+-    move-wide v8, v1
+-
+-    move-wide v1, v3
+-
+-    move-wide v3, v8
+-
+-    :goto_2
+-    const-string v0, "NetworkStatsOnPortHandler"
+-
+-    .line 159
+-    new-instance v5, Ljava/lang/StringBuilder;
+-
+-    invoke-direct {v5}, Ljava/lang/StringBuilder;-><init>()V
+-
+-    const-string v6, "getNetworkStatsVideoCall dataUsageRtp : "
+-
+-    invoke-virtual {v5, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {v5, v3, v4}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
+-
+-    const-string v6, ", dataUsageRtcp : "
+-
+-    invoke-virtual {v5, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {v5, v1, v2}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {v5}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+-
+-    move-result-object v5
+-
+-    invoke-static {v0, v5}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+-    :try_end_3
+-    .catchall {:try_start_3 .. :try_end_3} :catchall_0
+-
+-    add-long/2addr v3, v1
+-
+-    .line 160
+-    monitor-exit p0
+-
+-    return-wide v3
+-
+-    :catchall_0
+-    move-exception v0
+-
+-    monitor-exit p0
+-
+-    throw v0
++    return-wide v0
+ .end method
+ 
+ .method public handleMessage(Landroid/os/Message;)V
+--- a/com/sec/internal/ims/servicemodules/volte2/VolteServiceModule.smali
++++ b/com/sec/internal/ims/servicemodules/volte2/VolteServiceModule.smali
+@@ -5232,7 +5232,13 @@
+ .end method
+ 
+ .method public onCallEnded(III)V
+-    .locals 4
++    .locals 7
++
++    move-object v4, p0
++
++    move v5, p1
++
++    move v6, p2
+ 
+     .line 1259
+     sget-object v0, Lcom/sec/internal/ims/servicemodules/volte2/IVolteServiceModuleInternal;->LOG_TAG:Ljava/lang/String;
+@@ -5417,6 +5423,15 @@
+ 
+     invoke-virtual {p0}, Lcom/sec/internal/ims/servicemodules/volte2/ImsCallSessionManager;->onCallEnded()V
+ 
++    :try_start_desem48_latch
++    invoke-static {v4, v5, v6}, Lcom/sec/internal/google/ApBearerLatchProbe;->onLastCallEnded(Ljava/lang/Object;II)V
++    :try_end_desem48_latch
++    .catch Ljava/lang/Throwable; {:try_start_desem48_latch .. :try_end_desem48_latch} :catch_desem48_latch
++    goto :desem48_latch_done
++    :catch_desem48_latch
++    move-exception v0
++    :desem48_latch_done
++
+     return-void
+ .end method
+ 
+@@ -5655,6 +5670,8 @@
+ 
+     .line 1137
+     :cond_0
++    invoke-static {v0, p1}, Lcom/sec/internal/google/ApDedicatedBearerPoc;->onModule(Ljava/lang/Object;Ljava/lang/Object;)V
++
+     invoke-virtual {p1}, Lcom/sec/internal/ims/servicemodules/volte2/data/DedicatedBearerEvent;->getQci()I
+ 
+     move-result v1
+--- a/com/sec/internal/ims/servicemodules/volte2/VolteServiceModuleInternal$PhoneStateListenerInternal.smali
++++ b/com/sec/internal/ims/servicemodules/volte2/VolteServiceModuleInternal$PhoneStateListenerInternal.smali
+@@ -473,6 +473,8 @@
+     :cond_4
+     aput-boolean v3, p1, v4
+ 
++    invoke-static {v1, v4, v3}, Lcom/sec/internal/google/ApEpsOnlyDiag;->onServiceState(Ljava/lang/Object;IZ)V
++
+     .line 1855
+     iget-object p1, p0, Lcom/sec/internal/ims/servicemodules/volte2/VolteServiceModuleInternal$PhoneStateListenerInternal;->this$0:Lcom/sec/internal/ims/servicemodules/volte2/VolteServiceModuleInternal;
+ 
+--- a/com/sec/internal/ims/util/ImsUtil.smali
++++ b/com/sec/internal/ims/util/ImsUtil.smali
+@@ -152,22 +152,6 @@
+     return p0
+ .end method
+ 
+-.method public static getISemTelephony()Lcom/android/internal/telephony/ISemTelephony;
+-    .locals 1
+-
+-    const-string v0, "isemtelephony"
+-
+-    .line 516
+-    invoke-static {v0}, Landroid/os/ServiceManager;->getService(Ljava/lang/String;)Landroid/os/IBinder;
+-
+-    move-result-object v0
+-
+-    invoke-static {v0}, Lcom/android/internal/telephony/ISemTelephony$Stub;->asInterface(Landroid/os/IBinder;)Lcom/android/internal/telephony/ISemTelephony;
+-
+-    move-result-object v0
+-
+-    return-object v0
+-.end method
+ 
+ .method public static getPathWithPhoneId(Ljava/lang/String;I)Ljava/lang/String;
+     .locals 1
+@@ -336,131 +320,25 @@
+ .end method
+ 
+ .method public static getRatInNoSimCase(ILandroid/content/Context;)I
+-    .locals 4
++    .locals 2
+ 
+     .line 495
+-    sget-object v0, Lcom/sec/internal/ims/util/ImsUtil;->LOG_TAG:Ljava/lang/String;
+-
+-    const-string v1, "getRatInNoSimCase"
+-
+-    invoke-static {v0, v1}, Landroid/util/Log;->d(Ljava/lang/String;Ljava/lang/String;)I
+-
+-    const-string v1, "isemtelephony"
+-
+-    .line 496
+-    invoke-static {v1}, Landroid/os/ServiceManager;->getService(Ljava/lang/String;)Landroid/os/IBinder;
+-
+-    move-result-object v1
+-
+-    invoke-static {v1}, Lcom/android/internal/telephony/ISemTelephony$Stub;->asInterface(Landroid/os/IBinder;)Lcom/android/internal/telephony/ISemTelephony;
+-
+-    move-result-object v1
+-
+-    const/16 v2, 0xd
+-
+-    if-eqz v1, :cond_0
+-
+-    .line 499
+-    :try_start_0
+-    invoke-static {p0}, Lcom/sec/internal/helper/SimUtil;->getSubId(I)I
+-
+-    move-result p0
+-
+-    invoke-virtual {p1}, Landroid/content/Context;->getOpPackageName()Ljava/lang/String;
+-
+-    move-result-object v3
+-
+-    .line 500
+-    invoke-virtual {p1}, Landroid/content/Context;->getAttributionTag()Ljava/lang/String;
+-
+-    move-result-object p1
+-
+-    .line 499
+-    invoke-interface {v1, p0, v3, p1}, Lcom/android/internal/telephony/ISemTelephony;->getCellLocationBySubId(ILjava/lang/String;Ljava/lang/String;)Landroid/telephony/CellIdentity;
+-
+-    move-result-object p0
+-
+-    .line 501
+-    new-instance p1, Ljava/lang/StringBuilder;
+-
+-    invoke-direct {p1}, Ljava/lang/StringBuilder;-><init>()V
+-
+-    const-string v1, "RAT from cellIdentity = "
+-
+-    invoke-virtual {p1, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {p0}, Landroid/telephony/CellIdentity;->getType()I
+-
+-    move-result v1
+-
+-    invoke-virtual {p1, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+-
+-    move-result-object p1
+-
+-    invoke-static {v0, p1}, Landroid/util/Log;->d(Ljava/lang/String;Ljava/lang/String;)I
+-
+-    .line 502
+-    invoke-virtual {p0}, Landroid/telephony/CellIdentity;->getType()I
+-
+-    move-result p0
+-    :try_end_0
+-    .catch Landroid/os/RemoteException; {:try_start_0 .. :try_end_0} :catch_0
+-
+-    const/4 p1, 0x6
+-
+-    if-ne p0, p1, :cond_1
+-
+-    const/16 p0, 0x14
+-
+-    move v2, p0
+-
+-    goto :goto_0
+-
+-    :catch_0
+-    move-exception p0
+-
+-    .line 506
+-    invoke-virtual {p0}, Landroid/os/RemoteException;->printStackTrace()V
+-
+-    goto :goto_0
+-
+-    :cond_0
+-    const-string p0, "Unable to find ISemTelephony interface."
+-
+-    .line 509
+-    invoke-static {v0, p0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
+-
+-    .line 511
+-    :cond_1
+-    :goto_0
+     sget-object p0, Lcom/sec/internal/ims/util/ImsUtil;->LOG_TAG:Ljava/lang/String;
+ 
+-    new-instance p1, Ljava/lang/StringBuilder;
+-
+-    invoke-direct {p1}, Ljava/lang/StringBuilder;-><init>()V
+-
+-    const-string v0, "final rat = "
+-
+-    invoke-virtual {p1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {p1, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+-
+-    move-result-object p1
++    const-string p1, "getRatInNoSimCase: AOSP fallback LTE"
+ 
+     invoke-static {p0, p1}, Landroid/util/Log;->d(Ljava/lang/String;Ljava/lang/String;)I
+ 
+-    return v2
++    const/16 p0, 0xd
++
++    return p0
+ .end method
+ 
+ .method public static getSystemProperty(Ljava/lang/String;ILjava/lang/String;)Ljava/lang/String;
+     .locals 1
+ 
+     .line 483
+-    invoke-static {p0}, Landroid/os/SemSystemProperties;->get(Ljava/lang/String;)Ljava/lang/String;
++    invoke-static {p0}, Landroid/os/SystemProperties;->get(Ljava/lang/String;)Ljava/lang/String;
+ 
+     move-result-object p0
+ 
+@@ -649,7 +527,7 @@
+     const/4 v1, 0x0
+ 
+     .line 66
+-    invoke-static {v0, v1}, Landroid/os/SemSystemProperties;->getInt(Ljava/lang/String;I)I
++    invoke-static {v0, v1}, Landroid/os/SystemProperties;->getInt(Ljava/lang/String;I)I
+ 
+     move-result v2
+ 
+@@ -676,7 +554,7 @@
+     if-eqz v2, :cond_3
+ 
+     .line 71
+-    invoke-static {v0, v1}, Landroid/os/SemSystemProperties;->getInt(Ljava/lang/String;I)I
++    invoke-static {v0, v1}, Landroid/os/SystemProperties;->getInt(Ljava/lang/String;I)I
+ 
+     move-result v0
+ 
+--- a/com/sec/sve/SecVideoEngineManager.smali
++++ b/com/sec/sve/SecVideoEngineManager.smali
+@@ -413,6 +413,8 @@
+ .method public saeCreateChannel(IILjava/lang/String;ILjava/lang/String;IIILjava/lang/String;ZZ)I
+     .locals 13
+ 
++    invoke-static/range {p1 .. p11}, Lcom/sec/internal/google/ApMediaNegotiationPoc;->onCreateFull(IILjava/lang/String;ILjava/lang/String;IIILjava/lang/String;ZZ)V
++
+     move-object v0, p0
+ 
+     .line 247
+@@ -471,6 +473,8 @@
+ .method public saeDeleteChannel(I)I
+     .locals 1
+ 
++    invoke-static {p1}, Lcom/sec/internal/google/ApMediaNegotiationPoc;->onDelete(I)V
++
+     .line 321
+     iget-object p0, p0, Lcom/sec/sve/SecVideoEngineManager;->mService:Lcom/sec/sve/ISecVideoEngineService;
+ 
+@@ -671,7 +675,10 @@
+ .end method
+ 
+ .method public saeInitialize(III)V
+-    .locals 0
++    .locals 1
++
++    const-string v0, "INITIALIZE"
++    invoke-static {v0, p1, p2}, Lcom/sec/internal/google/ApMediaNegotiationPoc;->onGlobal(Ljava/lang/String;II)V
+ 
+     .line 197
+     iget-object p0, p0, Lcom/sec/sve/SecVideoEngineManager;->mService:Lcom/sec/sve/ISecVideoEngineService;
+@@ -766,6 +773,8 @@
+ .method public saeSetCodecInfo(ILjava/lang/String;IIIIIIZIIIIICCCCCCIILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I
+     .locals 32
+ 
++    invoke-static/range {p1 .. p10}, Lcom/sec/internal/google/ApMediaNegotiationPoc;->onCodecFull(ILjava/lang/String;IIIIIIZI)V
++
+     move-object/from16 v0, p0
+ 
+     .line 226
+@@ -1108,6 +1117,8 @@
+ .method public saeStartChannel(IIZ)I
+     .locals 1
+ 
++    invoke-static {p1, p2, p3}, Lcom/sec/internal/google/ApMediaNegotiationPoc;->onStartFull(IIZ)V
++
+     .line 263
+     iget-object p0, p0, Lcom/sec/sve/SecVideoEngineManager;->mService:Lcom/sec/sve/ISecVideoEngineService;
+ 
+@@ -1172,6 +1183,8 @@
+ .method public saeStopChannel(I)I
+     .locals 1
+ 
++    invoke-static {p1}, Lcom/sec/internal/google/ApMediaNegotiationPoc;->onStop(I)V
++
+     .line 293
+     iget-object p0, p0, Lcom/sec/sve/SecVideoEngineManager;->mService:Lcom/sec/sve/ISecVideoEngineService;
+ 
+@@ -1234,7 +1247,12 @@
+ .end method
+ 
+ .method public saeTerminate()V
+-    .locals 0
++    .locals 3
++
++    const-string v0, "TERMINATE"
++    const/4 v1, -0x1
++    const/4 v2, 0x0
++    invoke-static {v0, v1, v2}, Lcom/sec/internal/google/ApMediaNegotiationPoc;->onGlobal(Ljava/lang/String;II)V
+ 
+     .line 209
+     iget-object p0, p0, Lcom/sec/sve/SecVideoEngineManager;->mService:Lcom/sec/sve/ISecVideoEngineService;
+@@ -1265,6 +1283,8 @@
+ .method public saeUpdateChannel(IILjava/lang/String;ILjava/lang/String;III)I
+     .locals 10
+ 
++    invoke-static/range {p1 .. p8}, Lcom/sec/internal/google/ApMediaNegotiationPoc;->onUpdateFull(IILjava/lang/String;ILjava/lang/String;III)V
++
+     move-object v0, p0
+ 
+     .line 278

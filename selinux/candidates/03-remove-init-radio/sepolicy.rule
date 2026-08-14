@@ -1,0 +1,20 @@
+# S20 VoLTE — SELinux policy (Magisk applies this via magiskpolicy at boot).
+#
+# GOAL: let the Samsung IMS stack run while keeping GLOBAL SELinux ENFORCING, so we never
+# flip the global enforce bit (that is what trips Samsung RKP and force-reboots the device).
+# Magisk patches the loaded policy the same way it does for its own domains — this does NOT
+# touch the global enforce state, so it is RKP-safe.
+#
+# STAGE 1 (this version): make just the IMS-path domains permissive to "get it running".
+#   - system_app     : the imsservice.apk (android.uid.system -> system_app domain)
+#   - system_server  : telephony ImsResolver binds the compat ImsService + reads the app
+#   - radio          : rild / telephony / multiclientd (runs as uid radio)
+#   - init           : the Samsung daemons (imsd/eris/multiclientd/smdexe/connfwexe/ddexe/
+#                      at_distributor) are started from /system/etc/init/*.rc with NO seclabel,
+#                      so with no domain transition they run in the init domain.
+#
+# STAGE 2 (after testing): collect /data/local/tmp/s20volte_denials.txt, run audit2allow,
+# replace these `permissive` lines with explicit `allow` rules, and delete this note.
+
+permissive system_app
+permissive system_server

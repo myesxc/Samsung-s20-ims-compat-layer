@@ -1,0 +1,17 @@
+// Samsung IMS Service — S20 / Android 13 port
+// Derived from Samsung SM-G981N firmware (G981NKSU1HVJG).
+// See vendor-ims.mk for the full file list.
+
+soong_namespace {
+}
+
+android_app_import {
+    name: "imsservice",
+    owner: "samsung",
+    apk: "proprietary/system/priv-app/imsservice/imsservice.apk",
+    certificate: "platform",
+    dex_preopt: {
+        enabled: false,
+    },
+    privileged: true,
+}

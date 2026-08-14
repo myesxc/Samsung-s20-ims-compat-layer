@@ -1,0 +1,87 @@
+# Licenses
+
+This repository contains material under two different regimes. Read both sections.
+
+---
+
+## 1. Project-specific source code — Apache License 2.0
+
+Applies to code written for this project:
+
+- `java/` — IMS bridge sources
+- `c/` — `ims_sock_launch.c` and its build script
+- `build.sh`
+- `magisk-module/*.sh` — module scripts (`post-fs-data.sh`, `service.sh`, `customize.sh`)
+- `magisk-module/sepolicy.rule`
+- `selinux/` — convergence documentation, requirements ledger and the collector script
+- `README.md`, `README.zh-CN.md`, `tools/README.md`
+
+Copyright (c) 2026 myesxc
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use these files except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+---
+
+## 2. Samsung proprietary files — NOT covered by Apache-2.0
+
+Applies to:
+
+- `proprietary_vendor_samsung_ims/proprietary/` — daemons, native libraries, framework
+  JARs, configuration and certificates
+- `libs/` — compile-time-only JARs (`imsmanager.jar`, `EpdgManager.jar`, `rcsopenapi.jar`)
+- `smali_patch.diff` and `AndroidManifest.xml` — derived from Samsung's `imsservice.apk`
+
+These are derived from Samsung Galaxy S20 firmware:
+
+```text
+Device:   SM-G981N (KOO)
+Firmware: G981NKSU1HVJG (Android 13)
+```
+
+They are the property of Samsung Electronics Co., Ltd., and are included here solely to
+enable community research and interoperability with AOSP-based systems on hardware the
+user already owns. **No license is granted to them by this repository**, and no additional
+rights beyond what Samsung's own firmware terms permit are claimed or conveyed.
+
+The modifications in `smali_patch.diff` and `AndroidManifest.xml` are the minimum
+necessary to let the service register with the Android IMS framework on an AOSP ROM. The
+underlying work remains Samsung's.
+
+If you redistribute this repository or anything built from it, satisfy yourself that doing
+so is lawful in your jurisdiction.
+
+### Exceptions — project-added files inside the proprietary tree
+
+Two files under `proprietary_vendor_samsung_ims/proprietary/` are **not** from Samsung
+firmware and **are** Apache-2.0:
+
+- `system/bin/ims_sock_launch` — built from `c/ims_sock_launch.c`
+- `system/product/overlay/S20VoLTEImsOverlay.apk` — this project's RRO overlay
+
+`system/lib64/libapims_signaling.so` is likewise a project addition rather than a stock
+firmware file.
+
+---
+
+## 3. Signing keys
+
+**No signing keys are included in this repository.** `tools/keys/` is git-ignored.
+You must supply the platform key matching your target ROM. See `tools/README.md`.
+
+---
+
+## 4. Upstream attribution
+
+This project builds on
+[jameskdev/android_samsung_imsservice](https://github.com/jameskdev/android_samsung_imsservice)
+(Samsung Galaxy A21s / Android 11). Consult that repository for its own terms.

@@ -1,0 +1,17 @@
+version: 2.12.1
+apkFileName: stub.apk
+usesFramework:
+  ids:
+  - 1
+sdkInfo:
+  minSdkVersion: 33
+  targetSdkVersion: 31
+packageInfo:
+  forcedPackageId: 127
+versionInfo:
+  versionCode: 1
+  versionName: 1.0
+doNotCompress:
+- arsc
+- dex
+- webp
