@@ -7,6 +7,7 @@
 tools/*
 !tools/README.md
 out/*
+!out/.gitkeep
 # Locally extracted proprietary build inputs and generated APK artifacts.
 build-inputs/
 imsmanager-compat/out/
