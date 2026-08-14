@@ -6,6 +6,7 @@
 # none of those binaries or credentials belong in the public repository.
 tools/*
 !tools/README.md
+out/
 # Locally extracted proprietary build inputs and generated APK artifacts.
 build-inputs/
 imsmanager-compat/out/
@@ -52,3 +53,8 @@ classes.dex
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# IDE & Editor noise
+.vscode/
+.idea/
+*.iml
