@@ -15,6 +15,8 @@
 # running — data + IMS PDN are up), so we do NOT start smdexe/connfwexe here.
 MODDIR=${0%/*}
 BIN="$MODDIR/system/bin"
+#S20VOLTE_MULTICLIENTD_ROOT修改为0会让multiclientd使用radio身份运行，有助于提高安全性，但是可能会导致一些应用无法运行
+S20VOLTE_MULTICLIENTD_ROOT=1
 
 chown 0:0 "$MODDIR/system/product/overlay/S20VoLTEImsOverlay.apk"
 chmod 644 "$MODDIR/system/product/overlay/S20VoLTEImsOverlay.apk"
