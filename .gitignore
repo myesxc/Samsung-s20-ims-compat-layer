@@ -6,7 +6,7 @@
 # none of those binaries or credentials belong in the public repository.
 tools/*
 !tools/README.md
-out/
+out/*
 # Locally extracted proprietary build inputs and generated APK artifacts.
 build-inputs/
 imsmanager-compat/out/
