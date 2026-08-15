@@ -12,6 +12,8 @@ out/*
 build-inputs/
 imsmanager-compat/out/
 imsmanager-compat/input/
+rro/out/
+rro/*.idsig
 *.pk8
 *.jks
 *.keystore

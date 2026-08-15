@@ -121,6 +121,7 @@ if [ "$SIGN" -eq 1 ]; then
     "$APKSIGNER" sign --key "$KEY" --cert "$CERT" --out "$OUT" "$ALIGNED"
     "$ZIPALIGN" -c -v 4 "$OUT" >/dev/null
     "$APKSIGNER" verify --verbose "$OUT"
+    rm -f "$OUT.idsig"
 else
     cp "$UNSIGNED" "$OUT"
 fi

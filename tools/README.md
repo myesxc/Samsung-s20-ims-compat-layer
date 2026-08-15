@@ -149,6 +149,10 @@ five-stub secondary DEX with apktool and validates DEX hashes. Use **apktool 3.0
 pinned tool used by this repository) for this hash-reproducing step, along with `zip`, `unzip`,
 OpenJDK 17, and standard POSIX utilities.
 
+The root `build.sh release` orchestrator additionally needs a locally supplied stock system root
+containing `framework/imsmanager.jar`, the three ignored `build-inputs/classes{2,3,4}.dex`
+payloads, and the platform signing key under `tools/keys/`. It creates only the requested release
+artifacts and never copies these local inputs into the output directory.
 
 Only needed if you modify `c/ims_sock_launch.c`. A pre-built binary is already committed
 at `proprietary_vendor_samsung_ims/proprietary/system/bin/ims_sock_launch`.

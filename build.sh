@@ -21,6 +21,75 @@
 # stock imsservice.apk, which cannot be redistributed here.
 set -euo pipefail
 
+if [ "${1:-}" = "release" ]; then
+    shift
+    REPO=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+    STOCK_APK=
+    STOCK_SYSTEM=
+    OUTPUT_DIR=
+    SIGN=0
+
+    release_usage() {
+        cat >&2 <<EOF
+Usage: $0 release --stock-apk <imsservice.apk> --stock-system <system-root> --output-dir <directory> --sign
+
+Builds the final four-DEX imsservice.apk, derives the imsmanager.jar compatibility override,
+and packages a validated Magisk module ZIP. --sign is required because a system-UID APK cannot
+be deployed unsigned.
+EOF
+        exit 2
+    }
+
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --stock-apk) STOCK_APK=${2:-}; shift 2 ;;
+            --stock-system) STOCK_SYSTEM=${2:-}; shift 2 ;;
+            --output-dir) OUTPUT_DIR=${2:-}; shift 2 ;;
+            --sign) SIGN=1; shift ;;
+            -h|--help) release_usage ;;
+            *) release_usage ;;
+        esac
+    done
+    [ -n "$STOCK_APK" ] && [ -n "$STOCK_SYSTEM" ] && [ -n "$OUTPUT_DIR" ] && [ "$SIGN" -eq 1 ] || release_usage
+    [ -f "$STOCK_APK" ] || { echo "ERROR: stock APK not found: $STOCK_APK" >&2; exit 2; }
+    [ -f "$STOCK_SYSTEM/framework/imsmanager.jar" ] || {
+        echo "ERROR: stock system root lacks framework/imsmanager.jar: $STOCK_SYSTEM" >&2
+        exit 2
+    }
+
+    mkdir -p -- "$OUTPUT_DIR"
+    OUTPUT_DIR=$(CDPATH= cd -- "$OUTPUT_DIR" && pwd -P)
+    APK_OUT="$OUTPUT_DIR/imsservice.apk"
+    JAR_OUT="$OUTPUT_DIR/imsmanager.jar"
+    MODULE_OUT="$OUTPUT_DIR/S20_VoLTE_IMS.zip"
+    for artifact in "$APK_OUT" "$JAR_OUT" "$MODULE_OUT"; do
+        [ ! -e "$artifact" ] || { echo "ERROR: refusing to overwrite existing artifact: $artifact" >&2; exit 2; }
+    done
+
+    echo "==> Verifying stock inputs and committed module payload"
+    "$REPO/build/verify_input.sh" "$STOCK_APK"
+    "$REPO/magisk-module/verify_payload.sh" "$STOCK_SYSTEM"
+
+    echo "==> Building and signing final four-DEX IMS APK"
+    "$REPO/build/build_apk.sh" --stage final --sign "$STOCK_APK" "$APK_OUT"
+
+    echo "==> Building imsmanager.jar compatibility override"
+    "$REPO/imsmanager-compat/build.sh" --input "$STOCK_SYSTEM/framework/imsmanager.jar" --output "$JAR_OUT"
+
+    echo "==> Packaging validated Magisk module"
+    "$REPO/magisk-module/build_module.sh" --apk "$APK_OUT" --imsmanager "$JAR_OUT" \
+        --stock-root "$STOCK_SYSTEM" "$MODULE_OUT"
+
+    printf '%s\n' "Release build complete:" \
+        "  APK:    $APK_OUT" \
+        "  JAR:    $JAR_OUT" \
+        "  Module: $MODULE_OUT" \
+        "  APK SHA-256:    $(sha256sum "$APK_OUT" | cut -d' ' -f1)" \
+        "  JAR SHA-256:    $(sha256sum "$JAR_OUT" | cut -d' ' -f1)" \
+        "  Module SHA-256: $(sha256sum "$MODULE_OUT" | cut -d' ' -f1)"
+    exit 0
+fi
+
 REPO=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
 JAVA_HOME=${JAVA_HOME:-$(dirname "$(dirname "$(command -v javac)")")}

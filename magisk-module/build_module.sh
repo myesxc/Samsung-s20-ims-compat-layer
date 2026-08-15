@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Create a self-validating Magisk module ZIP from the declared 61-file payload.
+# Create a self-validating Magisk module ZIP from the declared payload manifest.
 set -euo pipefail
 
 REPO=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
@@ -67,6 +67,7 @@ for item in module.prop customize.sh post-fs-data.sh service.sh sepolicy.rule ME
 done
 
 payload_count=0
+expected_payload_count=$(awk -F '\t' '$1 !~ /^(#|!|$)/ { count++ } END { print count + 0 }' "$MANIFEST")
 while IFS=$'\t' read -r path category expected; do
     case "$path" in ''|'#'*|'!'*) continue ;; esac
     source="$PAYLOAD/$path"
@@ -84,7 +85,7 @@ while IFS=$'\t' read -r path category expected; do
     fi
     payload_count=$((payload_count + 1))
 done < "$MANIFEST"
-[ "$payload_count" -eq 61 ] || { echo "ERROR: expected 61 payload files, staged $payload_count" >&2; exit 3; }
+[ "$payload_count" -eq "$expected_payload_count" ] || { echo "ERROR: expected $expected_payload_count payload files, staged $payload_count" >&2; exit 3; }
 
 # Validate staging before compression. The chosen APK is allowed to differ from its manifest hash,
 # but it must remain a structurally verified final four-DEX artifact.
@@ -107,7 +108,7 @@ unzip -q "$OUT" -d "$VERIFY"
     echo "ERROR: ZIP contains host-only packaging helpers" >&2; exit 3;
 }
 zip_system_count=$(find "$VERIFY/system" -type f | wc -l)
-[ "$zip_system_count" -eq 61 ] || { echo "ERROR: ZIP system payload count is $zip_system_count, expected 61" >&2; exit 3; }
+[ "$zip_system_count" -eq "$expected_payload_count" ] || { echo "ERROR: ZIP system payload count is $zip_system_count, expected $expected_payload_count" >&2; exit 3; }
 
 while IFS=$'\t' read -r path category expected; do
     case "$path" in ''|'#'*|'!'*) continue ;; esac

@@ -116,7 +116,27 @@ the global SELinux enforce bit is cleared. After the second boot, confirm IMS re
 placing any emergency call. Use only the documented test emergency route and retain another way
 to reach emergency services.
 
-## Required stock input
+## Complete release build
+
+After preparing the local four-DEX inputs described below and platform signing key, the root
+orchestrator executes the complete release path: stock APK verification and transformation,
+`imsmanager.jar` compatibility derivation, and validated Magisk ZIP packaging.
+
+```bash
+bash build.sh release --stock-apk /home/myesxc/mount_system/system/priv-app/imsservice/imsservice.apk --stock-system /home/myesxc/mount_system/system --output-dir out/release --sign
+```
+
+It refuses to overwrite existing release artifacts. On success, `out/release/` contains only:
+
+```text
+imsservice.apk
+imsmanager.jar
+S20_VoLTE_IMS.zip
+```
+
+Plain `bash build.sh` remains the maintainer-only Java bridge snapshot command; it regenerates
+`smali_out/` and does not build an APK, JAR, or module.
+
 
 Only the IMS APK extracted from Samsung `G981NKSU1HVJG` for SM-G981N is supported:
 
@@ -153,7 +173,7 @@ on the verified Android 13 target.
 Build the derived JAR only from a local stock firmware extraction:
 
 ```bash
-bash imsmanager-compat/build.sh --input /home/myesxc/mount_system/system/framework/imsmanager.jar --output out/imsmanager.jar
+bash imsmanager-compat/build.sh --input /path/to/your/imsmanager.jar --output out/imsmanager.jar
 ```
 
 ```bash
@@ -166,21 +186,21 @@ tracked baseline JAR under `proprietary_vendor_samsung_ims/`.
 ## Magisk module package
 
 The module payload is not hand-assembled. It is defined by
-[`magisk-module/payload-manifest.tsv`](magisk-module/payload-manifest.tsv): 55 stock-identical
-files, three project additions, two known compatibility overrides, and the patched four-DEX APK.
+[`magisk-module/payload-manifest.tsv`](magisk-module/payload-manifest.tsv): 56 stock-identical
+files, two project additions, one required compatibility override, and the patched four-DEX APK.
 Build and validate it with:
 
 ```bash
-bash magisk-module/verify_payload.sh /home/myesxc/mount_system/system
+bash magisk-module/verify_payload.sh /path/to/mounted/system
 ```
 
 ```bash
-bash magisk-module/build_module.sh --stock-root /home/myesxc/mount_system/system out/S20_VoLTE_IMS.zip
+bash magisk-module/build_module.sh --stock-root /path/to/mounted/system out/S20_VoLTE_IMS.zip
 ```
 
 Use `--apk out/imsservice.apk` only for an explicitly rebuilt artifact that already passes
-`build/verify_apk.sh final`. The builder verifies it again, stages exactly 61 `system/` files,
-checks the emitted ZIP, and excludes `.idsig`, keys, captures, build source and host tools.
+`build/verify_apk.sh final`. The builder verifies it again, stages exactly the payload-manifest
+`system/` files, checks the emitted ZIP, and excludes `.idsig`, keys, captures, build source and host tools.
 
 ## Reproducibility scope
 

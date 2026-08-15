@@ -26,7 +26,7 @@ The input JAR must be extracted locally from the supported G981NKSU1HVJG system 
 the original Samsung JAR nor a newly derived JAR belongs in this source directory or in Git.
 
 ```bash
-bash imsmanager-compat/build.sh --input /home/myesxc/mount_system/system/framework/imsmanager.jar --output out/imsmanager.jar
+bash imsmanager-compat/build.sh --input /path/to/your/imsmanager.jar --output out/imsmanager.jar
 ```
 
 ```bash
