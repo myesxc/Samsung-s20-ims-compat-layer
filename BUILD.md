@@ -35,7 +35,7 @@ are created beneath a temporary directory and removed automatically.
 ### 1. Enter the repository and load the local tools
 
 ```bash
-cd /mnt/d/s20-imsservice/s20-imsservice-oss
+cd Samsung-s20-ims-compat-layer
 ```
 
 ```bash
@@ -123,7 +123,7 @@ orchestrator executes the complete release path: stock APK verification and tran
 `imsmanager.jar` compatibility derivation, and validated Magisk ZIP packaging.
 
 ```bash
-bash build.sh release --stock-apk /home/myesxc/mount_system/system/priv-app/imsservice/imsservice.apk --stock-system /home/myesxc/mount_system/system --output-dir out/release --sign
+bash build.sh release --stock-apk /path/to/mount_system/system/priv-app/imsservice/imsservice.apk --stock-system /path/to/mount_system/system --output-dir out/release --sign
 ```
 
 It refuses to overwrite existing release artifacts. On success, `out/release/` contains only:
