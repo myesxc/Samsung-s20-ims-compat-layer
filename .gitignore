@@ -4,16 +4,23 @@
 # tools/README.md documents how to recreate this directory. The working copy may contain
 # Android SDK/build-tools, dex-tools, apktool and ROM platform keys for local builds, but
 # none of those binaries or credentials belong in the public repository.
+# tools/env.sh is tracked on purpose: BUILD.md and both READMEs open with `source tools/env.sh`,
+# and it only exports paths — the tools and keys it points at stay ignored.
 tools/*
 !tools/README.md
+!tools/env.sh
 out/*
 !out/.gitkeep
 # Locally extracted proprietary build inputs and generated APK artifacts.
 build-inputs/
 imsmanager-compat/out/
 imsmanager-compat/input/
+# apktool writes its intermediate tree into the stub-apk source directory during
+# `apktool b`; only the hand-authored manifest and smali/ are source.
+imsmanager-compat/stub-apk/build/
+imsmanager-compat/stub-apk/dist/
 rro/out/
-rro/*.idsig
+*.idsig
 *.pk8
 *.jks
 *.keystore
@@ -30,7 +37,15 @@ rro/*.idsig
 logcat_*.txt
 dmesg*.txt
 kernel_*.txt
+dumpsys_*.txt
+bugreport*
+*.br
 *.pcap
+*.pcapng
+# Media captures the property guide tells testers to pull from /data/vendor/ims —
+# these carry call audio, so they stay local like every other device capture.
+*.rtpdump
+*.pcm
 
 # ---------------------------------------------------------------------------
 # Build temporaries
@@ -38,12 +53,18 @@ kernel_*.txt
 *.tmp
 *.bak
 *.log
+*.orig
+*.rej
+nohup.out
 dexjar.jar
 dexjar.jar.out/
 out.jar
-classes.dex
+# Root-anchored: an unanchored classes.dex rule would also match a payload DEX added
+# under a package directory, which is exactly the silent exclusion the note below warns about.
+/classes.dex
+/classes[0-9].dex
 
-# NOTE: smali_out/, libs/*.jar and everything under
+# NOTE: smali_out/, libs/*.jar, rro/ and everything under
 # proprietary_vendor_samsung_ims/ ARE tracked on purpose — they are the
 # deliverables of this repository. Do not add blanket *.apk / *.jar / *.zip
 # rules here: they would silently exclude imsservice.apk, imsmanager.jar,
@@ -61,3 +82,5 @@ desktop.ini
 .vscode/
 .idea/
 *.iml
+*.swp
+*~
