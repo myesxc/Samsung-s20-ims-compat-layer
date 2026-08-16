@@ -1,5 +1,9 @@
 # `imsmanager.jar` GSI compatibility override
 
+> 中文文档：[README.zh-CN.md](README.zh-CN.md)
+
+---
+
 Samsung’s stock `imsmanager.jar` expects framework APIs that do not exist on the target Android 13
 GSI. Restoring the stock JAR causes IMS registration to fail. This directory reproduces the
 minimal compatibility change without modifying Samsung’s original primary DEX.

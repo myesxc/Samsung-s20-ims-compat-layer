@@ -1,5 +1,9 @@
 # SELinux privilege convergence
 
+> 中文文档：[README.zh-CN.md](README.zh-CN.md)
+
+---
+
 How this module went from **four permissive domains plus two root daemons** down to
 **one permissive domain and two unprivileged daemons — with zero new allow rules**.
 

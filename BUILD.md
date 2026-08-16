@@ -1,5 +1,9 @@
 # Four-DEX APK Build
 
+> 中文文档：[BUILD.zh-CN.md](BUILD.zh-CN.md)
+
+---
+
 The historical S20 port is a **four-DEX** application. A previous public build procedure rebuilt only the stock primary DEX, producing an installable and correctly signed APK that could not register IMS. Do not use `smali_patch.diff` plus `smali_out/` as a standalone APK build procedure.
 
 The build script applies both stages internally, compiles the tracked Java bridge into a private temporary smali tree, injects it into the primary DEX, and emits only the final desem81-compatible APK:

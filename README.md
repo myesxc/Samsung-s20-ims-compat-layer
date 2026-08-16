@@ -1,10 +1,10 @@
-# Samsung S20 IMS Service — Android 13 GSI port
+# Samsung S20 IMS Service — Android 13/14 AOSP port
 
 Enable **VoLTE**, **IMS SMS** and **IMS emergency calls** on a Snapdragon Samsung Galaxy S20
-running an **Android 13 GSI** (verified on LineageOS 20).
+running an **Android 13/14 GSI** (verified on LineageOS 20/21).
 
 Derived from [jameskdev/android_samsung_imsservice](https://github.com/jameskdev/android_samsung_imsservice)
-(A21s / Android 11). This project extends that work to S20 / Android 13 with a modern
+(A21s / Android 11). This project extends that work to S20 / Android 13/14 with a modern
 `ImsService` bridge, AP-side RTP media, IMS SMS, emergency calling, and a SELinux
 convergence that never touches the global enforce bit.
 
@@ -99,7 +99,7 @@ tools/                              (empty) environment and version requirements
 
 - **Device**: Snapdragon Samsung Galaxy S20 (SM-G98xx).
   Verified on SM-G981N and SM-G9880.
-- **ROM**: Android 13 GSI. Verified on LineageOS 20.
+- **ROM**: Android 13/14 GSI. Verified on LineageOS 20/21.
   The build must be **test-keys** (`getprop ro.build.tags`) unless you hold that ROM's
   platform private key — the IMS/RRO APK runs as `android.uid.system` and must carry the
   ROM's platform signature.
@@ -121,6 +121,8 @@ Full environment setup, package list and exact versions: **[tools/README.md](too
 For the Samsung/One UI dependency model, AOSP bridge boundaries, four-DEX artifact design, and runtime adaptation, see **[Architecture and compatibility model](docs/ARCHITECTURE.md)**.
 
 For an evidence-driven methodology to investigate a **different** Samsung device, see **[Cross-device Samsung IMS porting guide](docs/CROSS_DEVICE_PORTING_GUIDE.md)**. It does not make this S20 payload portable.
+
+If you are a developer and need to develop or test, the project has some test switches, read-only readiness attributes, and rollback boundaries. See **[IMS System Attribute Testing Reference](docs/S20_IMS_SYSTEM_PROPERTIES.md)**.
 
 ```bash
 source tools/env.sh

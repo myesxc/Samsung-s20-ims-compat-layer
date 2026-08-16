@@ -4,7 +4,7 @@
 >
 > 如需为**另一台**三星设备调查和适配类似能力，且不将 S20 产物当作可移植文件，请阅读[基于证据的跨设备三星 IMS 移植指南](CROSS_DEVICE_PORTING_GUIDE.zh-CN.md)。
 >
-> 已记录 S20 测试开关、只读 readiness 属性及回滚边界见[IMS 系统属性测试参考](S20_IMS_SYSTEM_PROPERTIES.md)。
+> 已记录 S20 测试开关、只读 readiness 属性及回滚边界见[IMS 系统属性测试参考](S20_IMS_SYSTEM_PROPERTIES.zh-CN.md)。
 
 本文说明如何在已记录的 Android 13 GSI 上运行来自已记录 Android 13 固件的三星 IMS 组件。它描述的是本项目的兼容边界，并非通用的三星 IMS 或 One UI 移植方案。
 

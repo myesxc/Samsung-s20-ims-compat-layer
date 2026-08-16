@@ -1,36 +1,36 @@
-# S20 IMS 系统属性测试参考
+# S20 IMS System Property Test Reference
 
-> 本文是已记录 **S20 / Android 13 GSI** 基线的中文测试参考。英文架构和跨设备方法论见[架构与兼容性模型](ARCHITECTURE.md)与[跨设备三星 IMS 移植指南](CROSS_DEVICE_PORTING_GUIDE.zh-CN.md)。
+> 中文版：[S20 IMS 系统属性测试参考](S20_IMS_SYSTEM_PROPERTIES.zh-CN.md)
 >
-> **不能把这些值复制到其他设备。** 属性名、默认值、读取时机、IMS API、radio 行为、SELinux property context 和 audio 路径都可能随固件、SoC、ROM、运营商和 APK 构建而变化。
+> This is an **S20 / Android 13 GSI-specific** test reference. It does not make the property names, defaults, readers, radio behavior, SELinux property contexts, or audio path portable to another Samsung device, firmware, ROM, carrier, or bridge build.
 
-本文件列出当前公开工程中由 IMS bridge、Magisk runtime 或已记录测试流程实际读取的 Android system property。它用于控制一次有证据、有回滚的测试；不是“让 IMS 工作”的通用 `setprop` 清单。
+This document inventories Android system properties that the public project actually reads through the IMS bridge, Magisk runtime, or documented test workflow. It is a reference for a bounded, evidence-backed, reversible experiment—not a generic list of `setprop` commands that “enables IMS.”
 
-## 先读安全规则
+For the S20 integration boundary, see the [Architecture and compatibility model](ARCHITECTURE.md). For how to rediscover these contracts on another device rather than copy them, see the [Evidence-Driven Cross-Device Samsung IMS Porting Guide](CROSS_DEVICE_PORTING_GUIDE.md).
 
-- 只在保留了 last-known-good 模块和设备恢复方式的测试设备上修改属性。
-- 一次 candidate **只修改一个概念变量**；记录旧值、命令、APK/module SHA-256、workload、时间窗口和回滚结果。
-- `persist.*` 通常跨重启保留。测试结束必须恢复或清空；不能仅依赖下一次刷模块来覆盖它。
-- 不要手写 `ril.halservice.registered.slot1`、`sys.boot_completed`、`ro.build.tags`、`persist.radio.multisim.config` 或 `persist.ims.mock.multisim`。它们在本项目中是**观测值**，不是开关。
-- 不要执行 `setenforce 0`。已验证 S20 上全局关闭 enforcing 会触发三星 RKP 重启；详见 [SELinux 文档](../selinux/README.md)。
-- 不要把测试中的 IMSI、IMEI、号码、SIP/PCAP 或私钥提交到仓库。
-- 不要依赖实验性 IMS 拨打紧急电话；始终保留其他紧急联络方式。
+## Safety rules
 
-## 证据与状态标签
+- Change properties only on a test device with a known-good module and a tested recovery path.
+- Change **one conceptual variable per candidate**. Record the previous value, command, APK/module SHA-256, workload, collection window, result, and rollback.
+- `persist.*` properties normally survive reboot. Restore or clear them after an experiment; flashing another module does not necessarily undo them.
+- Do **not** write `ril.halservice.registered.slot1`, `sys.boot_completed`, `ro.build.tags`, `persist.radio.multisim.config`, or `persist.ims.mock.multisim`. This project treats them as observations, not controls.
+- Do **not** run `setenforce 0`. On the verified S20 targets, clearing global enforcing triggered Samsung RKP reboots. See [SELinux evidence](../selinux/README.md).
+- Do not commit IMSI, IMEI, telephone numbers, SIP traces, PCAPs, captured audio, or private keys.
+- Do not rely on an experimental IMS path for emergency calling.
 
-| 标签 | 含义 |
+## Status labels
+
+| Label | Meaning |
 |---|---|
-| **当前基线** | 当前公开 bridge 会读取，且是已记录 S20 成果的一部分。 |
-| **诊断开关** | 当前代码可读取，但只应用于受控诊断；不能据此宣称功能支持。 |
-| **高风险实验** | 会拆注册、IMS PDN 或 radio；必须人工确认、单变量执行并验证恢复。 |
-| **历史/已替代** | 保留在源码中用于重现实验或 bisect；不是推荐默认路径。 |
-| **只读观测** | 项目只读取；不能人工伪造或写入。 |
+| **Current baseline** | Current public bridge reads it and it forms part of the documented S20 result. |
+| **Diagnostic switch** | Current code reads it, but it is only for a controlled diagnosis—not a support claim. |
+| **High-risk experiment** | Can remove registration, tear down the IMS PDN, or cycle radio; requires explicit review and recovery validation. |
+| **Historical / superseded** | Retained for reproduction or bisecting, not a recommended default. |
+| **Read-only observation** | The project only reads it; do not fabricate or write it. |
 
-## 读取与生效规则
+## Read and activation rules
 
-所有项目自定义测试开关均为 `persist.vendor.ims.*`，桥接代码只通过 `android.os.SystemProperties.get*()` **读取**，不会写入它们。若目标 ROM 的 property policy 允许，可由 root shell 在测试前设置；是否允许、是否持久化及何时真正生效均须在设备上验证。
-
-常用的受控测试模板如下。它不是对每个属性都安全或适用：
+Project-defined switches use the `persist.vendor.ims.*` namespace. The bridge only reads them through `android.os.SystemProperties.get*()`; it does not write them. A rooted shell may set one only when the target ROM property policy permits it.
 
 ```bash
 adb shell su -c 'getprop persist.vendor.ims.<name>'
@@ -44,494 +44,389 @@ adb shell su -c 'setprop persist.vendor.ims.<name> <value>'
 adb shell su -c 'setprop persist.vendor.ims.<name> ""'
 ```
 
-最后一条用于清空测试值并让 bridge 回退代码默认值；清空后按该属性的读取时机重启 IMS、结束当前通话或重启设备。`persist.*` 的空值是否完全等价于“未设置”，必须用 `getprop` 和 bridge 日志确认。
+The last command clears a test override so code can use its built-in fallback. Confirm with `getprop` and bridge logs: a cleared persistent property is not automatically proof that the target property service treats it exactly as an unset value. Apply rollback according to the read time—new call, daemon restart, IMS re-registration, or device reboot.
 
-`ApMediaConfigPoc` 对大多数布尔值接受 `1`/`true`/`on`/`yes` 与 `0`/`false`/`off`/`no`（不区分大小写）；其它值会记录 `CONFIG_REJECT` 并回退默认值。整数开关必须在代码定义范围内，否则也会回退默认值。读取来源见 [`ApMediaConfigPoc.java`](../java/com/sec/internal/google/ApMediaConfigPoc.java)。
+Most booleans parsed by [`ApMediaConfigPoc.java`](../java/com/sec/internal/google/ApMediaConfigPoc.java) accept `1`/`true`/`on`/`yes` and `0`/`false`/`off`/`no`, case-insensitively. Invalid strings log `CONFIG_REJECT` and use the code fallback. Integer values outside the implementation range also fall back.
 
-## 总览
+## Inventory at a glance
 
-| 属性 | 分类 | 默认/安全基线 | 读取时机 | 状态 |
+| Property/group | Category | Default or safe S20 baseline | Read time | Status |
 |---|---|---|---|---|
-| `persist.vendor.ims.ap_media_rotate_ports` | 媒体开关 | `false` | 每通已建立呼叫 | 当前基线；已验证必须关闭 |
-| `persist.vendor.ims.ap_rtp_playback` | 下行媒体 | `true` | 每通建立时 | 当前基线 |
-| `persist.vendor.ims.ap_uplink_rtp` | 上行媒体 | `true` | endpoint 锁定和发送循环 | 当前基线 |
-| `persist.vendor.ims.ap_dtmf_rtp` | RFC 4733 DTMF | `true` | DTMF 事件时 | 当前基线 |
-| `persist.vendor.ims.ap_rtp_port` / `ap_rtcp_port` | RTP 端口 | `1234` / `1235` | 每通建立时 | 诊断开关 |
-| `persist.vendor.ims.ap_rtp_mode` | 下行播放/采集模式 | `play` | Probe 创建时 | 诊断开关 |
-| `persist.vendor.ims.ap_rtp_capture_bytes` | 下行采集上限 | `1048575` | Probe 创建时 | 诊断开关；有隐私风险 |
-| `persist.vendor.ims.ap_rtp_jitter` | 下行抖动队列 | `12` | Probe 创建时 | 诊断开关 |
-| `persist.vendor.ims.ap_rtcp_rr` / `ap_rtcp_rr_interval` / `ap_rtcp_rr_ssrc` | RTCP RR | `true` / `5` / 随机 | 每通 Probe/发送 RR 时 | 诊断开关 |
-| `persist.vendor.ims.ap_uplink_source` | 上行音频源 | `voice_uplink` | 上行建立时 | 当前基线 |
-| `persist.vendor.ims.ap_uplink_rtp_seconds` | 上行最长时长 | `32766` | 上行线程创建时 | 诊断开关 |
-| `persist.vendor.ims.ap_uplink_pt_override` | 上行 PT override | `-1` | wire-profile 解析时 | 诊断开关 |
-| `persist.vendor.ims.ap_uplink_nb_bitrate` / `ap_uplink_wb_bitrate` | AMR bitrate | `12200` / `12650` | 上行编码器创建时 | 诊断开关 |
-| `persist.vendor.ims.ap_dtmf_nb_pt` / `ap_dtmf_wb_pt` / `ap_dtmf_clock` / `ap_dtmf_pt` | DTMF/RTP PT | `110` / `111` / media clock / `111` | DTMF 或 media profile 时 | 诊断开关 |
-| `persist.vendor.ims.ap_uplink_capture` / `ap_uplink_seconds` / `ap_uplink_bytes` / `ap_uplink_file` | 上行 PCM 采集 | `false` / `10` / `320000` / `false` | 已建立呼叫时 | 诊断开关；高隐私风险 |
-| `persist.vendor.ims.ap_allow_call_waiting` | 第二来电 gate | `false` | 来电投递时 | 诊断开关；功能风险 |
-| `persist.vendor.ims.ap_stuck_call_fix` | 失败呼叫终结补偿 | `true` | `callSessionInitiatingFailed` 时 | 当前基线 |
-| `persist.vendor.ims.ap_latch_probe_*` | 第二通 bearer/reset 实验 | rung `6` | 最后一通结束后 | 高风险实验 |
-| `persist.vendor.ims.ap_dual_ims_override` | 双 IMS UA config override | `false` | UA 配置时 | 诊断开关；未形成 DSDS 支持 |
-| `persist.vendor.ims.ap_eps_only_override` | EPS-only call setup override | `false` | 呼叫 setup 时 | 诊断开关 |
-| `persist.vendor.ims.ap_sae_reset_on_last_call` | `saeTerminate` 尝试 | `false` | 最后一 session 移除时 | 历史/已替代 |
-| `persist.vendor.ims.ap_media_timeout` | Samsung native media timeout override | `32766` | 注册 profile 构建时 | 诊断开关；高风险 |
-| `persist.ims.gcfmode` / `persist.radio.gcfmode` | Samsung GCF test-mode 状态 | 由 Samsung 代码写入 | GCF mode 切换时 | 原厂内部属性；不作为手工测试开关 |
-| `persist.ims.salescode.sve` | SVE camera sales-code 状态 | 由 Samsung 代码写入 | 视频/相机启动路径 | 原厂内部属性；不作为 IMS 测试开关 |
-| `persist.ims.simmobility` | Samsung SIM-mobility 状态 | 由 Samsung 代码读取 | SIM mobility 配置路径 | 原厂内部属性；只读观察 |
-| `ro.product.first_api_level` | 首发 API level | ROM 固定 | IMS service-switch 路径 | 只读观测 |
-| `ril.halservice.registered.slot1` | radio readiness | 期望 `true` | 模块启动 `multiclientd` 前 | 只读观测 |
-| `sys.boot_completed` | boot readiness | 期望 `1` | `service.sh` 等待启动完成 | 只读观测 |
-| `persist.radio.multisim.config` | dual-SIM 诊断 | 无项目默认值 | UA/call snapshot | 只读观测 |
-| `persist.ims.mock.multisim` | dual-SIM 诊断 | 无项目默认值 | UA/call snapshot | 只读观测 |
-| `ro.build.tags` | 签名环境检查 | `test-keys` 或 `release-keys` | 构建/部署前 | 只读观测 |
+| `persist.vendor.ims.ap_media_rotate_ports` | Media switch | `false` | Each established call | Current baseline; must remain disabled |
+| `persist.vendor.ims.ap_rtp_playback` | Downlink media | `true` | Call setup | Current baseline |
+| `persist.vendor.ims.ap_uplink_rtp` | Uplink media | `true` | Endpoint lock and send loop | Current baseline |
+| `persist.vendor.ims.ap_dtmf_rtp` | RFC 4733 DTMF | `true` | Each DTMF event | Current baseline |
+| `ap_rtp_port` / `ap_rtcp_port` | RTP ports | `1234` / `1235` | Call setup | Diagnostic switch |
+| `ap_rtp_mode`, `ap_rtp_capture_bytes`, `ap_rtp_jitter` | Downlink diagnostics | `play`, `1048575`, `12` | Probe creation | Diagnostic; capture is sensitive |
+| `ap_rtcp_rr`, `ap_rtcp_rr_interval`, `ap_rtcp_rr_ssrc` | RTCP RR | `true`, `5`, random | Probe/RR transmission | Diagnostic switch |
+| `ap_uplink_source`, `ap_uplink_rtp_seconds` | Uplink audio | `voice_uplink`, `32766` | Uplink creation | Current baseline / diagnostic |
+| `ap_uplink_pt_override`, bitrate, DTMF PT/clock values | Codec diagnostics | See details | Profile/encoder/DTMF | Diagnostic switch |
+| `ap_uplink_capture`, `ap_uplink_seconds`, `ap_uplink_bytes`, `ap_uplink_file` | PCM capture | `false`, `10`, `320000`, `false` | Established call | Diagnostic; high privacy risk |
+| `ap_allow_call_waiting` | Incoming-call gate | `false` | Incoming call delivery | Diagnostic; feature risk |
+| `ap_stuck_call_fix` | Failed-call completion | `true` | Initiating failure | Current baseline |
+| `ap_latch_probe_*` | Second-call/bearer reset | rung `6` | Last call ends | High-risk experiment |
+| `ap_dual_ims_override`, `ap_eps_only_override` | Samsung-state diagnostics | `false` | UA/call setup | Diagnostic switch |
+| `ap_sae_reset_on_last_call` | `saeTerminate` attempt | `false` | Last session removed | Historical / superseded |
+| `ap_media_timeout` | Native media timeout | `32766` | Registration profile build | Diagnostic; high risk |
+| `persist.ims.*`, `persist.radio.gcfmode` | Samsung internal state | Samsung-controlled | Internal paths | Do not manually control |
+| `ril.halservice.registered.slot1`, `sys.boot_completed`, `ro.*` | Readiness/environment | target-produced | Startup/deployment | Read-only observation |
 
-下文中出现的所有 `ap_*` suffix 均完整展开为 `persist.vendor.ims.ap_*`。
+Every abbreviated `ap_*` name in this table expands to `persist.vendor.ims.ap_*`.
 
 ---
 
-# 1. 当前媒体与通话基线
+# 1. Current media and call baseline
 
 ## `persist.vendor.ims.ap_media_rotate_ports`
 
-| 字段 | 内容 |
+| Field | Value |
 |---|---|
-| 分类 | 当前基线的媒体开关 |
-| 默认值 | `false` |
-| 允许值 | 布尔值；代码接受 `1/0`、`true/false`、`on/off`、`yes/no` |
-| 读取者 | `ApRtpReceivePoc.onEstablished()`，经 `ApMediaConfigPoc.bool()` |
-| 生效时机 | 每通已建立时选择 RTP/RTCP 监听端口 |
-| 作用 | `false` 时每通固定用 `ap_rtp_port`/`ap_rtcp_port`；`true` 时按 `callId` 将端口每次加 2。 |
-| 回滚 | 设置为 `false` 或清空，再结束当前通话并进行下一次全新通话；必要时重启。 |
+| Category | Current media baseline switch |
+| Default | `false` |
+| Accepted values | Boolean values accepted by `ApMediaConfigPoc.bool()` |
+| Reader | `ApRtpReceivePoc.onEstablished()` |
+| Read time | Each established call chooses RTP/RTCP listener ports |
+| Rollback | Set `false` or clear it, end the call, and test a new call; reboot if needed. |
 
-[S20-已验证] 必须保持 `false`。若为 `true`，AP 侧接收端口按 `1234 + (callId - 1) * 2` 等轮换，但 Samsung native SDP 端口独立决定且未同步这一属性。第三通及以后可能出现 SDP 仍报 `1234`、AP 却绑定 `1238`，表现为“接通但无声”。来源：[README.md](../README.md) 和 [`ApRtpReceivePoc.java`](../java/com/sec/internal/google/ApRtpReceivePoc.java)。
+[S20-validated] This must remain `false`. When true, AP receive ports rotate by `callId` (`1234 + (callId - 1) * 2` with the baseline ports), while Samsung native SDP independently chooses its port and does not consume this setting. From a later call onward, SDP can still advertise `1234` while AP binds `1238`: the call connects but has no audio. See [README.md](../README.md) and [`ApRtpReceivePoc.java`](../java/com/sec/internal/google/ApRtpReceivePoc.java).
 
-**测试建议：** 不要把它当作性能优化。仅在研究端口轮换假设时，将它改为 `true`，至少测试三通连续电话，记录 `PORT_SELECT`、SDP/协商日志、`FIRST_RTP` 与双向音频；完成后立即恢复 `false`。
+Only set it to `true` to test the port-rotation hypothesis. Run at least three consecutive calls and capture `PORT_SELECT`, negotiation/SDP evidence, `FIRST_RTP`, and bidirectional audio. Restore `false` immediately afterward.
 
 ## `persist.vendor.ims.ap_rtp_playback`
 
-| 字段 | 内容 |
+| Field | Value |
 |---|---|
-| 分类 | 下行 RTP 解码/播放 gate |
-| 默认值 | `true` |
-| 读取者 | `ApRtpReceivePoc.onEstablished()` |
-| 生效时机 | 每通建立时 |
-| `true` | 创建 AP RTP/RTCP Probe，继续接收、解码并播放下行音频。 |
-| `false` | 本通不创建 Probe；可用于隔离 CP/AP 下行媒体问题。 |
-| 回滚 | 设回 `true` 或清空，然后重新发起通话。 |
+| Category | Downlink RTP decode/playback gate |
+| Default | `true` |
+| Reader | `ApRtpReceivePoc.onEstablished()` |
+| Read time | Call establishment |
+| `true` | Creates the AP RTP/RTCP probe and decodes/plays downlink audio. |
+| `false` | Does not create the probe for this call; isolates CP versus AP downlink behavior. |
+| Rollback | Set `true` or clear, then place a new call. |
 
-`false` 不是“修复无声”，而是用于确认问题是否位于 AP 下行链路。它会故意关闭项目的下行媒体实现。
+`false` deliberately disables the project's downlink media implementation. It is a diagnostic control, not a fix for no audio.
 
 ## `persist.vendor.ims.ap_uplink_rtp`
 
-| 字段 | 内容 |
+| Field | Value |
 |---|---|
-| 分类 | 上行 RTP gate |
-| 默认值 | `true` |
-| 读取者 | `ApRtpReceivePoc` endpoint 锁定后，以及 `ApRtpUplinkPoc` 发送循环中 |
-| 生效时机 | endpoint 识别后和每次上行读音频循环时 |
-| `true` | 以协商/wire profile 的 PT 启动 AP 上行 RTP。 |
-| `false` | 不启动或停止 AP 上行 RTP；可用于验证上行是否来自该 bridge。 |
-| 回滚 | 设回 `true` 或清空，重新建立通话。 |
+| Category | AP uplink RTP gate |
+| Default | `true` |
+| Readers | `ApRtpReceivePoc` after endpoint lock; `ApRtpUplinkPoc` send loop |
+| `true` | Starts/continues AP uplink RTP using the negotiated or wire-derived payload type. |
+| `false` | Does not start, or stops, AP uplink RTP; isolates whether uplink comes from this bridge. |
+| Rollback | Set `true` or clear and establish a new call. |
 
-此属性允许在通话过程中被发送循环再次读取，但不应把动态切换当作稳定功能；用新的通话做比较。
+The send loop can observe a changed value during a call, but dynamic switching is not a supported feature. Compare separate calls instead.
 
 ## `persist.vendor.ims.ap_dtmf_rtp`
 
-| 字段 | 内容 |
+| Field | Value |
 |---|---|
-| 分类 | RFC 4733 DTMF ownership gate |
-| 默认值 | `true` |
-| 读取者 | `ApRtpReceivePoc.routeDtmf()` |
-| 生效时机 | 每个 DTMF start/stop/pulse 事件 |
-| `true` | 在存在唯一有效 AP 上行 session 时，由 AP RTP 路径发送 DTMF。 |
-| `false` | bridge 返回 `false`，允许既有路径处理 DTMF。 |
-| 回滚 | 设回 `true` 或清空；用 NB/WB 分别验证。 |
+| Category | RFC 4733 DTMF ownership gate |
+| Default | `true` |
+| Reader | `ApRtpReceivePoc.routeDtmf()` |
+| Read time | Each DTMF start/stop/pulse |
+| `true` | AP RTP sends DTMF when one valid AP uplink session exists. |
+| `false` | Bridge returns `false`, allowing the existing path to handle DTMF. |
+| Rollback | Set `true` or clear; test NB and WB independently. |
 
-DTMF PT 及 clock 需与 codec profile 一起验证；见第 3 节。
+## `persist.vendor.ims.ap_rtp_port` and `persist.vendor.ims.ap_rtcp_port`
 
-## `persist.vendor.ims.ap_rtp_port` 与 `persist.vendor.ims.ap_rtcp_port`
-
-| 属性 | 默认值 | 范围 | 作用 |
+| Property | Default | Valid range | Role |
 |---|---:|---:|---|
-| `persist.vendor.ims.ap_rtp_port` | `1234` | `1..65535` | 每通固定端口模式下的 RTP 监听基端口。 |
-| `persist.vendor.ims.ap_rtcp_port` | `1235` | `1..65535` | 每通固定端口模式下的 RTCP 监听基端口。 |
+| `persist.vendor.ims.ap_rtp_port` | `1234` | `1..65535` | RTP base listener port when rotation is disabled. |
+| `persist.vendor.ims.ap_rtcp_port` | `1235` | `1..65535` | RTCP base listener port when rotation is disabled. |
 
-无效值会回退默认值。两者不能相同；代码在通话建立时会拒绝相同/越界端口。不要随意改成 carrier 或 native 已占用端口。改动后以新通话验证 `PORT_SELECT`、socket bind、`FIRST_RTP`/`FIRST_RTCP` 和双向语音。回滚为清空或恢复 `1234`/`1235`。
+Invalid values fall back. The ports must differ; call setup rejects equal/out-of-range values. Do not select a port already owned by carrier/native media. Validate a new call with `PORT_SELECT`, bind results, `FIRST_RTP`/`FIRST_RTCP`, and bidirectional audio. Clear or restore `1234`/`1235` to roll back.
 
-## `persist.vendor.ims.ap_rtp_mode`
+## `persist.vendor.ims.ap_rtp_mode`, `ap_rtp_capture_bytes`, and `ap_rtp_jitter`
 
-| 字段 | 内容 |
-|---|---|
-| 分类 | 下行 RTP 诊断模式 |
-| 默认值 | `play` |
-| 读取者 | `ApRtpReceivePoc.Probe` 创建时 |
-| `play` | 解码并创建 `AudioTrack`；正常测试模式。 |
-| `capture` | 保留 RTP 采集但关闭 decode/track，用于分离包到达与音频渲染。 |
-| 其他任何值 | 当前实现仍会 decode，但不会创建 track；这不是稳定公开模式。 |
-| 回滚 | 清空或设为 `play`，下一通重新建立。 |
+| Property | Default | Semantics | Risk / rollback |
+|---|---:|---|---|
+| `persist.vendor.ims.ap_rtp_mode` | `play` | `play` decodes and creates `AudioTrack`; `capture` keeps RTP capture but disables decode/track. Other strings decode but do not create a track and are not supported modes. | Clear or set `play`; test a new call. |
+| `persist.vendor.ims.ap_rtp_capture_bytes` | `1048575` | `0..8388607`, clamped. `0` disables file capture; positive values write up to the limit to `/data/vendor/ims/desem22_call_<id>.rtpdump`. | Captures may contain voice. Prefer `0`, delete local captures, and never commit them. |
+| `persist.vendor.ims.ap_rtp_jitter` | `12` | `3..50`, clamped. Limits downlink reorder queue size. | Small values can drop/reorder frames; large values add latency. Clear or restore `12`. |
 
-仅 `play` 和 `capture` 应用于有意测试。不要用未知字符串做“关闭媒体”的开关。
-
-## `persist.vendor.ims.ap_rtp_capture_bytes`
-
-| 字段 | 内容 |
-|---|---|
-| 分类 | 下行 RTP 调试采集大小上限 |
-| 默认值 | `1048575` bytes |
-| 有效范围 | `0..8388607`，超界会 clamp |
-| 生效 | 每通 Probe 创建时 |
-| `0` | 不写下行 RTP capture 文件。 |
-| 大于 `0` | 最多采集该字节量到 `/data/vendor/ims/desem22_call_<id>.rtpdump`。 |
-| 风险 | 捕获 RTP 可能包含语音/号码相关内容；不能提交或公开。 |
-| 回滚 | 设 `0` 或清空；删除本地敏感 capture。 |
-
-建议默认使用 `0`，除非正在进行经过授权的媒体故障调查。
-
-## `persist.vendor.ims.ap_rtp_jitter`
-
-| 字段 | 内容 |
-|---|---|
-| 默认值 | `12` |
-| 有效范围 | `3..50`，超界值会 clamp |
-| 读取时机 | 每通 Probe 创建时 |
-| 作用 | 限制下行 RTP 重排序队列大小；过小会增加丢帧/重排风险，过大增加延迟。 |
-| 回滚 | 清空或恢复 `12`，对比相同网络和 codec 的通话。 |
-
-这是媒体调参，不是网络丢包的通用修复。需同时记录 `dropped`、`reordered`、jitter、RTP 包数和实际听感。
+For jitter experiments collect `dropped`, `reordered`, jitter, RTP packet count, and listening results. It is not a general packet-loss repair.
 
 ---
 
-# 2. RTCP、codec、PT 与上行音频参数
+# 2. RTCP, codec/PT, and uplink audio parameters
 
-## `persist.vendor.ims.ap_rtcp_rr`、`persist.vendor.ims.ap_rtcp_rr_interval`、`persist.vendor.ims.ap_rtcp_rr_ssrc`
+## RTCP receiver reports
 
-| 属性 | 默认值 | 有效值 | 作用与风险 |
+| Property | Default | Valid values | Effect |
 |---|---:|---|---|
-| `persist.vendor.ims.ap_rtcp_rr` | `true` | 布尔值 | 是否发送 RTCP Receiver Report；关闭可隔离反馈路径，但不应作为长期媒体配置。 |
-| `persist.vendor.ims.ap_rtcp_rr_interval` | `5` 秒 | `3..10` | RR 发送间隔；无效值回退默认。 |
-| `persist.vendor.ims.ap_rtcp_rr_ssrc` | 随机 32-bit 值 | 十进制或 `0x` 十六进制，`0..0xffffffff` | 覆盖接收端 SSRC；无效值回退随机值。 |
+| `persist.vendor.ims.ap_rtcp_rr` | `true` | Boolean | Enables RTCP Receiver Reports. Disabling isolates feedback only. |
+| `persist.vendor.ims.ap_rtcp_rr_interval` | `5` seconds | `3..10` | RR interval; invalid values fall back. |
+| `persist.vendor.ims.ap_rtcp_rr_ssrc` | Random 32-bit value | Decimal or `0x` hexadecimal, `0..0xffffffff` | Overrides receiver SSRC; invalid values use random. |
 
-它们在每通 `Probe` 创建时读取（SSRC 在每次 RR 发送时读取）。只有在已经证实 RTP/RTCP endpoint 和网络绑定正常后才测试。固定 SSRC 可能影响远端对会话的处理，不应作为普通用户设置。清空可恢复默认。
+Probe-level settings are read at call creation; RR SSRC is read on each RR transmission. Test only after RTP/RTCP endpoint and network binding are known to work. A forced SSRC can affect remote session handling; clear it to return to random behavior.
 
 ## `persist.vendor.ims.ap_uplink_source`
 
-| 字段 | 内容 |
+| Field | Value |
 |---|---|
-| 分类 | 上行音频来源选择 |
-| 默认值 | `voice_uplink` |
-| 允许值 | `mic`、`voice_communication`、`voice_uplink` |
-| 读取者 | `ApMediaConfigPoc.source()` 和 `ApRtpUplinkPoc` |
-| 生效时机 | 上行 encoder/`AudioRecord` 创建时 |
-| 回滚 | 清空或设为 `voice_uplink`，重新通话。 |
+| Default | `voice_uplink` |
+| Accepted values | `mic`, `voice_communication`, `voice_uplink` |
+| Readers | `ApMediaConfigPoc.source()` and `ApRtpUplinkPoc` |
+| Read time | Uplink encoder/`AudioRecord` creation |
+| Rollback | Clear or set `voice_uplink`, then make a new call. |
 
-`voice_uplink` 是已记录 S20 基线。`mic` 或 `voice_communication` 仅用于比较 audio HAL 路由；它们可能产生静音、回声、错误音源或权限/路由差异。`ApUplinkCapturePoc` 的独立诊断默认值是 `mic`，不要把该 capture 默认误认为正式上行 RTP 默认。
+`voice_uplink` is the S20 baseline. `mic` and `voice_communication` only compare Audio HAL routing and can result in silence, echo, a wrong source, or route/permission differences. The separate capture diagnostic defaults to `mic`; that does not change the production uplink baseline.
 
-## `persist.vendor.ims.ap_uplink_rtp_seconds`
+## Uplink duration, PT, and bitrate
 
-| 字段 | 内容 |
-|---|---|
-| 默认值 | `32766` 秒 |
-| 有效范围 | `0..32766` |
-| 生效 | 上行 RTP thread 创建时 |
-| `0` | 代码将其视为不设时长上限，直到通话生命周期结束。 |
-| 正整数 | 到达秒数后停止上行 RTP；用于短时诊断。 |
-| 回滚 | 清空；不要把短时长遗留到功能测试。 |
-
-## `persist.vendor.ims.ap_uplink_pt_override`
-
-| 字段 | 内容 |
-|---|---|
-| 默认值 | `-1`（不覆盖） |
-| 有效值 | `-1` 或动态 PT `96..127`；其他静态 PT 会被拒绝并回退 `-1`。 |
-| 生效 | 在未获得协商 media、由 wire profile 识别 codec 时。 |
-| 作用 | 强制 AP uplink 使用指定 PT，而不是使用 wire 对称假设。 |
-| 风险 | PT 与对端/SDP 不一致会导致上行无声或 codec 错误。 |
-| 回滚 | 清空或 `-1`，重新发起通话。 |
-
-不应把抓包中一次看到的 PT 当作永久值。优先使用协商 profile；此属性只用于证明 PT 假设。
-
-## `persist.vendor.ims.ap_uplink_nb_bitrate` 与 `persist.vendor.ims.ap_uplink_wb_bitrate`
-
-| 属性 | 默认值 | 允许值 | 说明 |
+| Property | Default | Accepted values | Meaning |
 |---|---:|---|---|
-| `persist.vendor.ims.ap_uplink_nb_bitrate` | `12200` | `4750`、`5150`、`5900`、`6700`、`7400`、`7950`、`10200`、`12200` | AMR-NB encoder bitrate。非法值回退 `12200`。 |
-| `persist.vendor.ims.ap_uplink_wb_bitrate` | `12650` | 当前实现只接受 `12650` | AMR-WB bitrate；其它值不会形成有效 override。 |
+| `persist.vendor.ims.ap_uplink_rtp_seconds` | `32766` | `0..32766` | Uplink thread duration. `0` is unbounded until call lifecycle ends; positive values stop it after that many seconds. |
+| `persist.vendor.ims.ap_uplink_pt_override` | `-1` | `-1` or dynamic PT `96..127` | Overrides uplink PT only when wire profile supplies the media profile; static PTs are rejected. |
+| `persist.vendor.ims.ap_uplink_nb_bitrate` | `12200` | `4750`, `5150`, `5900`, `6700`, `7400`, `7950`, `10200`, `12200` | AMR-NB encoder bitrate. |
+| `persist.vendor.ims.ap_uplink_wb_bitrate` | `12650` | Current implementation accepts only `12650` | AMR-WB encoder bitrate. |
 
-读取于上行 encoder 创建时。bitrate 必须与协商 codec/profile 和网络允许的模式相匹配；仅因“声音差”而盲改 bitrate 会掩盖 PT、RTP 或 audio-source 错误。回滚为清空。
+These values are read while the encoder/profile is created. A forced PT or bitrate that disagrees with negotiation can cause uplink silence or codec failure. Do not convert a single captured PT into a permanent setting; prefer negotiated profile behavior. Clear diagnostic overrides after a test.
 
-## DTMF 相关 PT/clock
+## DTMF PT and clock
 
-| 属性 | 默认值 | 有效范围/规则 | 用途 |
+| Property | Default | Valid rule | Role |
 |---|---:|---|---|
-| `persist.vendor.ims.ap_dtmf_nb_pt` | `110` | `96..127` | AMR-NB RFC 4733 PT。 |
-| `persist.vendor.ims.ap_dtmf_wb_pt` | `111` | `96..127` | AMR-WB RFC 4733 PT。 |
-| `persist.vendor.ims.ap_dtmf_clock` | 当前 media clock | 只能是 `8000` 或 `16000`，且必须等于当前 media clock | DTMF clock override。 |
-| `persist.vendor.ims.ap_dtmf_pt` | `111` | `96..127` | media 尚未解析时用于避免把 DTMF PT 误识别为 voice RTP 的 acquisition filter。 |
+| `persist.vendor.ims.ap_dtmf_nb_pt` | `110` | `96..127` | AMR-NB RFC 4733 PT. |
+| `persist.vendor.ims.ap_dtmf_wb_pt` | `111` | `96..127` | AMR-WB RFC 4733 PT. |
+| `persist.vendor.ims.ap_dtmf_clock` | Current media clock | `8000` or `16000`, and must equal current media clock | DTMF clock override. |
+| `persist.vendor.ims.ap_dtmf_pt` | `111` | `96..127` | Pre-profile acquisition filter that avoids treating DTMF as voice RTP. |
 
-所有值都必须按 NB/WB codec 分别验证。错误 PT 或 clock 会造成 DTMF 不生效、被对端当作语音或破坏 media profile 识别。通常不应设置任何 override；清空即可恢复代码默认值。
+Verify NB and WB separately. Wrong PT/clock can make DTMF fail, be interpreted as voice, or prevent media profile detection. Normally leave all overrides unset.
 
 ---
 
-# 3. 上行/下行采集与来电控制诊断
+# 3. Capture and incoming-call diagnostics
 
-## `persist.vendor.ims.ap_uplink_capture`、`ap_uplink_seconds`、`ap_uplink_bytes`、`ap_uplink_file`
+## `persist.vendor.ims.ap_uplink_capture`, `ap_uplink_seconds`, `ap_uplink_bytes`, `ap_uplink_file`
 
-这些属性控制**独立上行 PCM 采集诊断**，不负责发送 RTP。
+These control an independent uplink PCM capture diagnostic; they do **not** send RTP.
 
-| 属性 | 默认值 | 有效范围/值 | 作用 |
+| Property | Default | Accepted values | Role |
 |---|---:|---|---|
-| `persist.vendor.ims.ap_uplink_capture` | `false` | 布尔值 | 已建立呼叫时是否启动 `ApUplinkCapturePoc`。 |
-| `persist.vendor.ims.ap_uplink_seconds` | `10` | `1..30`（clamp） | 采集持续时间。 |
-| `persist.vendor.ims.ap_uplink_bytes` | `320000` | `3200..960000`（clamp） | 最大 PCM 字节数。 |
-| `persist.vendor.ims.ap_uplink_file` | `false` | 布尔值 | 是否将 PCM 写入 `/data/vendor/ims/desem26_call_<id>_<source>.pcm`。 |
+| `persist.vendor.ims.ap_uplink_capture` | `false` | Boolean | Starts `ApUplinkCapturePoc` after call establishment. |
+| `persist.vendor.ims.ap_uplink_seconds` | `10` | `1..30`, clamped | Capture duration. |
+| `persist.vendor.ims.ap_uplink_bytes` | `320000` | `3200..960000`, clamped | Maximum PCM bytes. |
+| `persist.vendor.ims.ap_uplink_file` | `false` | Boolean | Writes PCM to `/data/vendor/ims/desem26_call_<id>_<source>.pcm`. |
 
-诊断 capture 默认 `ap_uplink_source=mic`，与正式上行 RTP 默认 `voice_uplink` 不同。`ap_uplink_file=true` 会写入可能含语音的敏感文件；仅在明确授权的本地测试中启用，结束后设回 `false`、删除文件，并绝不提交。源文件：[ApUplinkCapturePoc.java](../java/com/sec/internal/google/ApUplinkCapturePoc.java)。
+The capture diagnostic defaults its source to `mic`, unlike production uplink RTP's `voice_uplink` default. With `ap_uplink_file=true`, the file may contain voice data. Enable only for authorized local tests, restore `false`, delete the file, and do not commit it. See [`ApUplinkCapturePoc.java`](../java/com/sec/internal/google/ApUplinkCapturePoc.java).
 
 ## `persist.vendor.ims.ap_allow_call_waiting`
 
-| 字段 | 内容 |
+| Field | Value |
 |---|---|
-| 默认值 | `false` |
-| 读取者 | `ApIncomingCallBridge.notifyIncoming()` |
-| 生效 | 每次收到来电且已有活动 session 时 |
-| `false` | 默认拒绝第二来电，使用 busy cause `2`。 |
-| `true` | 允许 bridge 尝试把第二来电交给 framework；不代表 call waiting 已完整支持。 |
-| 回滚 | 清空/设回 `false`，再做单通与第二来电回归。 |
+| Default | `false` |
+| Reader | `ApIncomingCallBridge.notifyIncoming()` |
+| Read time | Incoming call arrives while another session is active |
+| `false` | Default rejects second call with busy cause `2`. |
+| `true` | Allows the bridge to try delivery to framework; does not make call waiting complete. |
+| Rollback | Clear/set `false`, then regress a single call and a second incoming call. |
 
-[S20-已验证] call waiting 仍有已知无声/重置干扰问题。此属性只能用于隔离来电投递分支；不能把 `true` 作为正式功能承诺。
+[S20-validated] Call waiting retains known audio/reset interference. Use this only to isolate incoming-call delivery—not as a feature-support switch.
 
 ## `persist.vendor.ims.ap_stuck_call_fix`
 
-| 字段 | 内容 |
+| Field | Value |
 |---|---|
-| 分类 | 当前基线的失败呼叫终结补偿 |
-| 默认值 | `true` |
-| 读取者 | `ApStuckCallFix.shouldSynthesiseTerminated()` |
-| 生效 | Samsung 栈发出 `callSessionInitiatingFailed` 且 session 尚未 closing 时 |
-| `true` | 发送合成的 `callSessionTerminated`，避免 framework Telecom call 停在 `DISCONNECTING`。 |
-| `false` | 禁用补偿，用于观察原始失败路径；可能导致无法挂断、不能继续拨号。 |
-| 回滚 | 清空或明确设 `true`，并用失败拨号场景确认 Telecom 可恢复。 |
+| Category | Current failed-call terminal-event compensation |
+| Default | `true` |
+| Reader | `ApStuckCallFix.shouldSynthesiseTerminated()` |
+| Read time | Samsung stack emits `callSessionInitiatingFailed` and session is not already closing |
+| `true` | Synthesizes `callSessionTerminated`, preventing Telecom from remaining in `DISCONNECTING`. |
+| `false` | Exposes original failure path; can leave a call unhangable and prevent further calls. |
+| Rollback | Clear or explicitly set `true`; verify Telecom recovers from a failed dial attempt. |
 
-不建议在普通稳定性测试中关闭它。关闭后看到的卡死是已知 failure mode，不是 bearer 诊断的结论。
+Do not disable it during ordinary stability testing. The resulting stuck call is a known failure mode, not evidence about bearer behavior.
 
 ---
 
-# 4. bearer latch / radio reset 实验属性（高风险）
+# 4. Bearer-latch/radio-reset experiment properties — high risk
 
-这些属性由 [`ApBearerLatchProbe.java`](../java/com/sec/internal/google/ApBearerLatchProbe.java) 读取，目标是研究“首通后下一通无声/无 bearer”的状态机问题。它们可能导致 IMS PDN 被拆除、注册被移除、radio 短暂关闭或电话暂时不可达。
+[`ApBearerLatchProbe.java`](../java/com/sec/internal/google/ApBearerLatchProbe.java) reads these properties to investigate the “first call works, next call lacks audio/bearer” state-machine issue. They can remove registration, tear down IMS PDN, cycle radio, or leave normal telephony temporarily unavailable.
 
-**使用前要求：** 保留 known-good 模块；只在非紧急测试窗口；记录当前注册与 data 状态；每个 rung 单独测；完成后恢复 rung `6` 或回到已验证 artifact。不能在通话中修改。
+Before use: retain a known-good module, work outside any emergency window, record registration/data state, test each rung independently, and do not modify properties during a call.
 
 ## `persist.vendor.ims.ap_latch_probe_rung`
 
-| 值 | 行为 | 当前解释 |
+| Value | Action | Current interpretation |
 |---:|---|---|
-| `0` | 不做 reset | control run。 |
-| `1` | `sendReRegister` | 仅 SIP re-REGISTER，保留 PDN；必须以实际 outbound REGISTER 验证，而非仅看返回值。 |
-| `2` | `deregisterProfile` 后显式 `registerProfile` | 会触发完整周期；单独 deregister 会把 profile 移除并导致不自动重注册。 |
-| `3` | `stopPdnConnectivity` | 尝试拆 IMS PDN，但可能因 listener/内部契约不匹配而静默 no-op。 |
-| `4` | airplane-mode radio cycle | 已记录稳定 fallback；会短暂中断 service。 |
-| `5` | 显式 IMS PDN stop/start | 实验性 PDN rebuild；必须验证 `SETUP_DATA_CALL`，返回值不是成功证据。 |
-| `6` | `TelephonyManager.setRadioPower` cycle | 当前代码默认值；直接 radio cycle，不写 airplane setting。 |
+| `0` | No reset | Control run. |
+| `1` | `sendReRegister` | SIP re-REGISTER only; keeps PDN. Prove an outbound REGISTER, not merely a returned API call. |
+| `2` | `deregisterProfile` then explicit `registerProfile` | Full cycle. Deregistration alone removes the profile and does not automatically re-register. |
+| `3` | `stopPdnConnectivity` | Attempts IMS PDN teardown; internal listener mismatch can make it a silent no-op. |
+| `4` | Airplane-mode radio cycle | Documented stable fallback; briefly interrupts service. |
+| `5` | Explicit IMS PDN stop/start | Experimental rebuild; prove `SETUP_DATA_CALL`; return value is not success evidence. |
+| `6` | `TelephonyManager.setRadioPower` cycle | Current code default; direct radio cycle without writing airplane setting. |
 
-允许范围为 `0..6`；非法值回退默认 `6`。`rung 4/6` 会影响普通电话和 data。rung 1–5 不是“更优修复”的证明：历史实验表明方法可能返回正常却没有真正触发目标动作。
+Allowed range is `0..6`; invalid values fall back to `6`. Rungs 4/6 affect normal calls/data. Rungs 1–5 are not proof of a better repair: historical attempts can return normally without reaching the target action.
 
-**验证：** 使用 bridge 的 `VERIFY_REGISTER_SENT`、`VERIFY_MOVED` 或 `VERIFY_PDN_REBUILT` 日志，以及第二通真实媒体/通话结果。`VERIFY_NO_CHANGE` 表示本次请求可能是 no-op，不能解读为“该层不重要”。
+Verify with `VERIFY_REGISTER_SENT`, `VERIFY_MOVED`, or `VERIFY_PDN_REBUILT` plus the actual next-call result. `VERIFY_NO_CHANGE` means an operation may have been a no-op; it does not prove the layer is irrelevant.
 
-## 延时与 PDN 参数
+## Delay and PDN parameters
 
-| 属性 | 默认值 | 范围/读取规则 | 风险与用途 |
-|---|---:|---|---|
-| `persist.vendor.ims.ap_latch_probe_delay_ms` | `1500` ms | `0..60000` | 最后一通结束与执行 rung 的延时；过短可与 teardown 竞争。 |
-| `persist.vendor.ims.ap_latch_probe_pdn_type` | `11` | 直接 `getInt`，无 clamp | 传给特定 IMS/PDN API 的候选 PDN type；`11` 是 S20 日志中 IMS 值。错误值可使 API 静默匹配不到 task。 |
-| `persist.vendor.ims.ap_latch_probe_rereg_delay_ms` | `2000` ms | 直接 `getInt`，无 clamp | rung 2 deregister 与明确 re-register 的间隔。 |
-| `persist.vendor.ims.ap_latch_probe_radio_dwell_ms` | `400` ms | `200..10000` | rung 4/6 radio-off dwell。过短可能导致远端振铃、但本地仍在拨号。 |
-| `persist.vendor.ims.ap_latch_probe_pdn_gap_ms` | `1200` ms | 直接 `getInt`，无 clamp | rung 5 stop/start PDN 间隔。 |
+| Property | Default | Validation / risk |
+|---|---:|---|
+| `persist.vendor.ims.ap_latch_probe_delay_ms` | `1500` ms | `0..60000`; delay after final call before rung. Too short can race teardown. |
+| `persist.vendor.ims.ap_latch_probe_pdn_type` | `11` | Direct `getInt`, no clamp. S20 IMS PDN value observed in logs; wrong values can silently match no task. |
+| `persist.vendor.ims.ap_latch_probe_rereg_delay_ms` | `2000` ms | Direct `getInt`, no clamp. Gap between rung-2 deregistration/re-registration. |
+| `persist.vendor.ims.ap_latch_probe_radio_dwell_ms` | `400` ms | `200..10000`. Rung 4/6 radio-off dwell; too short can desynchronize remote ringing and local UI. |
+| `persist.vendor.ims.ap_latch_probe_pdn_gap_ms` | `1200` ms | Direct `getInt`, no clamp. Rung-5 PDN stop/start gap. |
 
-`pdn_type`、`rereg_delay_ms` 和 `pdn_gap_ms` 缺少范围检查，因而更不适合作为一般用户开关。除非已有目标代码/日志证明参数语义，保持默认并不要尝试负数或超长值。
+`pdn_type`, re-registration delay, and PDN gap lack range validation and are unsuitable as general-user switches. Keep defaults unless target code/logs prove their parameter semantics.
 
-### 回滚
+### Rollback
 
-- 将 `ap_latch_probe_rung` 恢复为当前基线值 `6`，或清空以让代码用默认值；不要遗留 `1`–`5`。
-- 清空所有 `ap_latch_probe_*` 延时/PDN override。
-- 完成一次重启，确认 `rild`、IMS 注册、普通 data 与一次常规通话恢复。
+1. Restore `ap_latch_probe_rung` to current baseline `6`, or clear it to use the code default; do not leave rungs 1–5 configured.
+2. Clear all `ap_latch_probe_*` delay/PDN overrides.
+3. Reboot, then verify `rild`, IMS registration, ordinary data, and one normal call.
 
 ---
 
-# 5. 诊断 override 与已替代实验
+# 5. Diagnostic overrides and superseded experiments
 
 ## `persist.vendor.ims.ap_dual_ims_override`
 
-| 字段 | 内容 |
+| Field | Value |
 |---|---|
-| 默认值 | `false` |
-| 读取者 | `ApDualImsDiag.effectiveConfig()` |
-| `true` | 仅当原始 UA dual-IMS config 为 `0` 时，将 effective 值改为 `3`。 |
-| `false` | 保留原值。 |
-| 用途 | 诊断 Samsung UA config 对 dual IMS 的翻译路径。 |
-| 限制 | 不会让 GSI 自动支持 SIM 2，也不替代 radio HAL、slot 或 `multiclientd` DSDS 路径。 |
+| Default | `false` |
+| Reader | `ApDualImsDiag.effectiveConfig()` |
+| `true` | Changes effective UA dual-IMS config from `0` to `3` only. |
+| Purpose | Diagnoses Samsung UA dual-IMS translation path. |
+| Limitation | Does not implement SIM 2, radio HAL slot support, or `multiclientd` DSDS behavior. |
 
-这是诊断 override，不是双卡支持开关。改动前后记录 `AP_DUAL_IMS` 中的 `phoneCount`、`config`、`translated` 和 UA log；测试结束清空。
+This is a diagnostic override, not a dual-SIM support switch. Record `AP_DUAL_IMS` `phoneCount`, `config`, `translated`, and UA logs before/after; clear after the test.
 
 ## `persist.vendor.ims.ap_eps_only_override`
 
-| 字段 | 内容 |
+| Field | Value |
 |---|---|
-| 默认值 | `false` |
-| 读取者 | `ApEpsOnlyDiag.effectiveCallSetup()` |
-| `true` 的精确条件 | 仅在原判定为 `false`、非 emergency、`callType == 1`、该 `phoneId` data registration 为 `0`、data network 为 LTE `13` 时，将结果变为 `true`。 |
-| 其它情况 | 保持原始判断。 |
-| 用途 | 分析 EPS-only/VoLTE call setup gate。 |
-| 风险 | 可能绕过原厂状态判断；不得用于 emergency；不能作为一般注册修复。 |
+| Default | `false` |
+| Reader | `ApEpsOnlyDiag.effectiveCallSetup()` |
+| Exact `true` condition | Original decision is false; call is non-emergency type `1`; matching phone has data registration `0` and LTE data network `13`. |
+| Other cases | Leaves original decision unchanged. |
+| Risk | Can bypass stock state judgment; never use for emergency; not a general registration fix. |
 
-验证 `AP_EPS_ONLY` 的 `SERVICE_STATE`、`OVERRIDE` 和 `CALL_SETUP` 日志。回滚为清空或 `false`，并重新建立 IMS 状态。
+Validate `AP_EPS_ONLY` `SERVICE_STATE`, `OVERRIDE`, and `CALL_SETUP` logs; clear/set false and recreate IMS state to roll back.
 
 ## `persist.vendor.ims.ap_sae_reset_on_last_call`
 
-| 字段 | 内容 |
+| Field | Value |
 |---|---|
-| 默认值 | `false` |
-| 读取者 | `ApSaeResetPoc.onSessionRemoved()` |
-| `true` | 最后一 session 移除时反射调用媒体接口的 `saeTerminate()`。 |
-| 状态 | **历史/已替代**。 |
-| 原因 | 历史注释记录一个早期 rung 使用不存在的方法名，导致每次调用抛异常而没有真正测试假设；后续 bearer/radio 结论不应依赖此路径。 |
-| 建议 | 保持 `false`；不要把它作为当前连续通话修复。 |
+| Default | `false` |
+| Reader | `ApSaeResetPoc.onSessionRemoved()` |
+| `true` | Reflectively invokes `saeTerminate()` after last session removal. |
+| Status | **Historical / superseded** |
 
-若为了历史复现必须开启，必须单变量、记录 `SAE_TERMINATE_COMPLETE`/`SAE_TERMINATE_FAIL`，并准备重启恢复。
+A historical rung used a nonexistent method and threw every time, so the hypothesis was never actually tested. Do not use it as the current repeated-call repair. If reproducing history, record `SAE_TERMINATE_COMPLETE`/`SAE_TERMINATE_FAIL` and be prepared to reboot.
 
 ---
 
-# 6. 原厂内部属性：记录但不手动控制
+# 6. Samsung-internal properties — record, do not manually control
 
-下列属性出现在已 patch 的 Samsung stock smali 中。项目将 `SemSystemProperties` 调用替换为 AOSP `SystemProperties`，使原厂路径可在 GSI 上运行；这**不是**授权测试者手写这些属性。它们由 Samsung 内部代码读写，语义还依赖原厂 module/configuration。
+These appear in patched Samsung stock smali because the project replaces unavailable `SemSystemProperties` APIs with AOSP `SystemProperties`. That compatibility change does **not** authorize manual writes: their semantics depend on proprietary modules/configuration.
 
 ## `persist.vendor.ims.ap_media_timeout`
 
-| 字段 | 内容 |
+| Field | Value |
 |---|---|
-| 分类 | Samsung native RTP/RTCP timeout 的诊断 override |
-| 默认值 | `32766` |
-| 有效范围 | `30..32766`；范围外回退 `32766`。 |
-| 注入位置 | `patches/desem5-to-desem81.patch` 中 `ResipRegistrationManager.configureMedia()`。 |
-| 作用 | 同时覆盖 `CallProfile` 的 RTP timeout 和 RTCP timeout。 |
-| 风险 | 值过低会将 media session 误判超时；值过高会延长故障发现。它不修复 RTP 端口、codec、bearer 或 audio routing。 |
-| 回滚 | 清空或恢复 `32766`；重新注册/重启 IMS 后检查 `AP_MEDIA_TIMEOUT` 日志。 |
+| Category | Native RTP/RTCP timeout diagnostic override |
+| Default | `32766` |
+| Valid range | `30..32766`; values outside range fall back to `32766`. |
+| Injection point | `ResipRegistrationManager.configureMedia()` in `patches/desem5-to-desem81.patch` |
+| Effect | Sets both `CallProfile` RTP and RTCP timeouts. |
+| Risk | Low values can falsely time out media; high values delay fault detection. It does not fix ports, codec, bearer, or routing. |
 
-只能在研究“原厂 timeout 是否导致已知 media failure”时单独测试。不要因为无声就降低该值。
+Test only a specific timeout hypothesis. Clear/restore `32766`, re-register/restart IMS, and inspect `AP_MEDIA_TIMEOUT`; do not lower it merely because audio is absent.
 
-## `persist.ims.gcfmode` 与 `persist.radio.gcfmode`
+## `persist.ims.gcfmode`, `persist.radio.gcfmode`, `persist.ims.salescode.sve`, `persist.ims.simmobility`
 
-| 属性 | 原厂路径 | 当前项目关系 | 规则 |
-|---|---|---|---|
-| `persist.ims.gcfmode` | 原厂 GCF mode 设置代码会写入。 | `stock-to-desem5.patch` 只将写入 API 从 `SemSystemProperties` 改为 AOSP `SystemProperties`。 | 不手工修改。GCF/test mode 可能影响运营商、注册和认证行为。 |
-| `persist.radio.gcfmode` | 原厂 GCF mode 代码在相应条件下写入 `1`。 | 同上。 | 不手工修改；仅在分析已启用的原厂 GCF 流程时读取日志。 |
-
-本仓库没有把它们当作 S20 IMS 的推荐测试开关，也没有为“关闭/打开后功能应如何变化”建立公开验证矩阵。
-
-## `persist.ims.salescode.sve`
-
-原厂 `ResipMediaHandler` 在启动 SVE camera 路径时写入此属性；patch 仅将 API 调用替换为 AOSP `SystemProperties`。它与 video/camera/SVE 路径相关，而当前项目不支持 video call。**不要人工设置。** 它不用于 VoLTE 音频、IMS 注册或 SMS 测试。
-
-## `persist.ims.simmobility`
-
-原厂 `ImsSimMobilityUpdate` 读取此整数属性，patch 同样只是替换 `SemSystemProperties` API。它的语义属于 Samsung SIM-mobility 配置，而不是公开的“让本项目移动网络可用”开关。只在调查原厂 SIM mobility 逻辑时读取；不设置、不以它伪造 carrier/slot 状态。
+| Property | Stock relationship | Rule |
+|---|---|---|
+| `persist.ims.gcfmode` | Samsung GCF-mode code writes it; the first-stage patch only substitutes the property API. | Do not write manually. GCF/test mode can alter carrier, registration, or authentication behavior. |
+| `persist.radio.gcfmode` | Samsung GCF-mode code may write `1`. | Do not write manually; inspect only during analysis of stock-enabled GCF flow. |
+| `persist.ims.salescode.sve` | `ResipMediaHandler` writes it on SVE camera startup. | Video/camera-specific; video calling is unsupported. Do not set for VoLTE/SMS tests. |
+| `persist.ims.simmobility` | `ImsSimMobilityUpdate` reads it as an integer. | Samsung SIM-mobility configuration, not a public carrier/slot switch. Observe only. |
 
 ## `ro.product.first_api_level`
 
-原厂 IMS service-switch 路径读取该 ROM 固定属性。它是只读的 product-first API level，不是当前 Android API level，也不是一个可写兼容开关。项目仅因 GSI 缺少 `SemSystemProperties` 而将读取 API 换成 AOSP `SystemProperties`。不要修改 `ro.*` 属性。
+Samsung service-switch paths read this ROM-fixed first API level. It is not current API level and not a writable compatibility control. The patch only substitutes the `SemSystemProperties` read API. Do not alter `ro.*` properties.
 
-# 7. 只读 system property：观察，不要写入
+---
+
+# 7. Read-only observations — do not write
 
 ## `ril.halservice.registered.slot1`
 
-| 字段 | 内容 |
+| Field | Value |
 |---|---|
-| 分类 | 只读 radio/HAL readiness 观测 |
-| 项目读取者 | `magisk-module/post-fs-data.sh` |
-| 期望值 | `true`，且 `rild` 进程存在时，才启动 `multiclientd -s 1`。 |
-| 不应做的事 | 不得人工 `setprop` 伪造为 `true`。 |
+| Category | Radio/HAL readiness observation |
+| Reader | `magisk-module/post-fs-data.sh` |
+| Expected value | `true` plus a live `rild` process before launching `multiclientd -s 1`. |
+| Prohibition | Never fake it with `setprop`. |
 
-它是 module 启动门槛，不是 IMS 注册开关。脚本最多等待约 120 秒；超时会记录 `multiclientd prerequisites timed out` 并不启动。若它始终不为 `true`，调查 target radio HAL、slot topology 和 `rild`，不要修改属性。
+It is a module startup gate, not an IMS-registration switch. The script waits about 120 seconds, then logs a timeout and does not launch `multiclientd`. If it remains false, investigate target radio HAL, slot topology, and `rild`.
 
 ## `sys.boot_completed`
 
-| 字段 | 内容 |
-|---|---|
-| 分类 | 只读 boot readiness 观测 |
-| 项目读取者 | `magisk-module/service.sh` |
-| 期望值 | `1` |
-| 作用 | service 脚本等待 Android boot 完成后采集/输出 SELinux denial snapshot。 |
-| 不应做的事 | 不得手动写入。 |
+Read by `magisk-module/service.sh`; expected `1`. It delays the service script until Android completes boot so it can collect/output a SELinux denial snapshot. It neither starts IMS daemons nor determines registration. Do not write it.
 
-它不启动 IMS daemon，也不决定注册状态；仅用于避免 service 脚本在 boot 未完成时运行。
+## `persist.radio.multisim.config` and `persist.ims.mock.multisim`
 
-## `persist.radio.multisim.config` 与 `persist.ims.mock.multisim`
-
-| 属性 | 项目用途 | 规则 |
-|---|---|---|
-| `persist.radio.multisim.config` | `ApDualImsDiag` 记录 radio multi-SIM 配置用于诊断。 | 只读观测；不应用于强制 slot/DSDS。 |
-| `persist.ims.mock.multisim` | `ApDualImsDiag` 记录 mock multi-SIM 状态。 | 只读观测；不是公开的 S20 双卡支持开关。 |
-
-即使它们显示某种 multi-SIM 配置，也不能证明 GSI port 的 slot 2 可用。S20 当前公开限制仍是 SIM 1；见 [README.zh-CN.md](../README.zh-CN.md)。
+`ApDualImsDiag` records these values as radio/mock multi-SIM diagnostics. They are not public switches for forcing DSDS or slot selection. A multi-SIM-looking value does not prove that slot 2 works on this GSI; the documented S20 limitation remains SIM 1 only.
 
 ## `ro.build.tags`
 
-| 字段 | 内容 |
-|---|---|
-| 分类 | 只读 ROM signing-environment 观测 |
-| 使用位置 | README/tools 部署前检查 |
-| 典型值 | `test-keys` 或 `release-keys` |
-| 作用 | 判断目标 ROM 是否可能接受可用 test platform key，或是否必须持有该 ROM 的实际 platform signing identity。 |
-| 不应做的事 | `ro.*` 是只读属性，不能也不应尝试修改。 |
-
-它不是 IMS runtime 开关。`test-keys` 也不等于“任何 test key 都可以签”；必须匹配 ROM 实际信任的 key。
+This read-only ROM-signing observation is checked before deployment. Typical values are `test-keys` and `release-keys`; it helps determine whether an available platform signing identity can plausibly be accepted. It is not an IMS runtime control. `test-keys` also does not mean every test key is accepted—the key must match ROM trust.
 
 ---
 
-# 8. 不是 Android system property 的相关开关
+# 8. Related controls that are not Android system properties
 
-下面名称容易与 `getprop`/`setprop` 混淆，但它们是 shell environment variable 或 Android setting，不属于本清单的 system property：
-
-| 名称 | 类型 | 当前作用 | 注意事项 |
+| Name | Type | Current role | Important note |
 |---|---|---|---|
-| `S20VOLTE_MULTICLIENTD_ROOT` | `post-fs-data.sh` shell 变量 | 当前值 `1`，选择 root fallback 启动 `multiclientd`。 | 不是 `setprop` 属性；低权限 radio path 虽存在，但当前默认未使用。 |
-| `IMS_SOCK_LAUNCH_NO_DROP` | launcher environment variable | 可触发 launcher 不降权的 fallback 行为。 | 诊断/回归 bisect 用，不能当安全默认。 |
-| `airplane_mode_on` | `Settings.Global` setting | `ApBearerLatchProbe` rung 4 经 framework API 写入并广播，驱动 radio cycle。 | 不是 system property；会中断 service，不能用 `setprop` 模拟。 |
-| `SDK_HOME`、`AAPT2`、`ZIPALIGN` 等 | host shell environment | 本地构建工具路径。 | 不进入设备 property inventory。 |
+| `S20VOLTE_MULTICLIENTD_ROOT` | `post-fs-data.sh` shell variable | Current value `1` chooses root fallback for `multiclientd`. | Not a `setprop` value; lower-privilege radio path exists but is not the current default. |
+| `IMS_SOCK_LAUNCH_NO_DROP` | Launcher environment variable | Enables launcher no-drop fallback. | Diagnostic/bisecting aid, not a security default. |
+| `airplane_mode_on` | `Settings.Global` setting | Latch-probe rung 4 writes it through framework API and broadcasts the change to cycle radio. | Not a property; interrupts service and cannot be simulated with `setprop`. |
+| `SDK_HOME`, `AAPT2`, `ZIPALIGN` | Host shell environment | Local build tool paths. | Not part of device property inventory. |
 
 ---
 
-# 9. 测试流程与回滚清单
+# 9. Test and rollback checklist
 
-## 修改一个可写属性前
-
-```text
-[ ] 当前 APK/module 与 target profile 的 SHA-256 已记录。
-[ ] 已保存当前 property 值和 last-known-good artifact。
-[ ] 已定义一个可证伪的假设与一个变量。
-[ ] 已定义 workload（例如一次短通话、第二通、NB/WB DTMF 或短信）。
-[ ] 已 arm 时间有界的 log/kernel-audit 采集。
-[ ] 已定义失败触发条件和回滚步骤。
-```
-
-## 修改后验证
+## Before changing a writable property
 
 ```text
-[ ] getprop 值与预期一致。
-[ ] 对“每通读取”属性，以新的通话验证，不用已有通话推断。
-[ ] 对“启动读取”属性，按需要重启 daemon 或设备。
-[ ] 记录 bridge 的 CONFIG_OVERRIDE / CONFIG_REJECT / MEDIA_GATE / PORT_SELECT 等日志。
-[ ] 同时记录注册、通话建立、双向音频、DTMF、第二通和 data 状态。
-[ ] AVC 调查使用 kernel audit/dmesg 的有边界窗口，而非只看 logcat。
+[ ] Current APK/module and target-profile SHA-256 are recorded.
+[ ] Current property value and last-known-good artifact are preserved.
+[ ] One falsifiable hypothesis and one variable are defined.
+[ ] Workload is defined: short call, repeat call, NB/WB DTMF, or SMS.
+[ ] Time-bounded log/kernel-audit collection is armed.
+[ ] Failure trigger and rollback steps are defined.
 ```
 
-## 回滚
+## Validate after a change
 
-1. 清空或恢复本次唯一修改的 `persist.vendor.ims.*` 值。
-2. 对媒体属性使用一通新的电话验证；对启动或 radio 实验执行重启。
-3. 检查 `getprop`、IMS 注册、普通 data、一次安全的常规通话。
-4. 若设备进入 crash loop、无注册或 radio 未恢复，先移除 candidate/恢复 known-good module，不要继续叠加属性修改。
-5. 把失败 candidate 标记为 `fail`、`partial`、`blocked` 或 `regressed`，而不是模糊地写“无效”。
+```text
+[ ] getprop matches the intended value.
+[ ] Per-call properties are tested on a new call, not inferred from a current call.
+[ ] Startup/radio properties receive the required daemon restart or device reboot.
+[ ] CONFIG_OVERRIDE / CONFIG_REJECT / MEDIA_GATE / PORT_SELECT logs are recorded.
+[ ] Registration, call setup, bidirectional audio, DTMF, repeat call, and data state are recorded.
+[ ] AVC investigation uses a bounded kernel-audit/dmesg window, not logcat alone.
+```
 
-## 维护规则
+## Roll back
 
-新增或删除 bridge 属性时，同时更新本文件；每条记录必须包含代码读取路径、默认/允许值、风险和回滚。若一次实验推翻旧结论，将旧属性标为“历史/已替代”，不要删除历史而让后续维护者重走同一个失败路径。
+1. Clear or restore the one `persist.vendor.ims.*` value changed by the candidate.
+2. Make a new call for media properties; reboot for startup/radio experiments.
+3. Recheck `getprop`, IMS registration, ordinary data, and one safe ordinary call.
+4. If registration/radio does not recover or the device crash-loops, remove the candidate/restore the known-good module before changing any more properties.
+5. Mark the candidate `fail`, `partial`, `blocked`, or `regressed`; do not reduce evidence to “ineffective.”
+
+## Maintenance rule
+
+When bridge properties are added or removed, update both language versions of this reference. Every entry needs its reader, default/allowed values, risk, rollback, and evidence status. If an experiment overturns an old conclusion, mark it historical/superseded rather than deleting the lesson and inviting the same failed experiment again.

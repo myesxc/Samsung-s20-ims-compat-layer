@@ -1,11 +1,11 @@
-# Samsung S20 IMS Service —— Android 13 GSI 移植
+# Samsung S20 IMS Service —— Android 13 AOSP 移植
 
-在运行 **Android 13 GSI**（已在 LineageOS 20 上验证）的骁龙版三星 Galaxy S20 上启用
+在运行 **Android 13/14 GSI**（已在 LineageOS 20/21 上验证）的骁龙版三星 Galaxy S20 上启用
 **VoLTE**、**IMS 短信**和 **IMS 紧急呼叫**。
 
 本项目衍生自 [jameskdev/android_samsung_imsservice](https://github.com/jameskdev/android_samsung_imsservice)
-（A21s / Android 11），并将其扩展到 S20 / Android 13：现代 `ImsService` 桥接、AP 侧 RTP 媒体、
-IMS 短信、紧急呼叫，以及一套**从不触碰全局 enforce 位**的 SELinux 权限收敛。
+（A21s / Android 11），并将其扩展到 S20 / Android 13/14：现代 `ImsService` 桥接、AP 侧 RTP 媒体、
+IMS 短信、紧急呼叫，以及一套**保持 selinux 为 enforce **的 SELinux 权限收敛。
 
 > English documentation: [README.md](README.md)
 
@@ -33,7 +33,7 @@ IMS 短信、紧急呼叫，以及一套**从不触碰全局 enforce 位**的 SE
 |---|---|
 | **主测试机型** | 三星 Galaxy S20 5G **SM-G981N**（KOO，韩版） |
 | **另行验证机型** | 三星 Galaxy S20 5G **SM-G9880**（TGY，港版） |
-| **系统** | **LineageOS 20**（Android 13） |
+| **系统** | **LineageOS 20/21**（Android 13/14） |
 | **运营商** | 中国电信、中国联通 |
 | **Root** | Magisk 26+ |
 
@@ -114,7 +114,7 @@ tools/                              （空目录）环境与版本要求说明
 
 如需为**其他型号的**三星设备进行基于证据的调查与适配，见 **[跨设备三星 IMS 移植指南](docs/CROSS_DEVICE_PORTING_GUIDE.zh-CN.md)**。该指南仅供参考，本项目的 S20 payload 不直接适用于其他设备。
 
-如果你是开发者，需要进行开发或测试， 项目有一些测试开关、只读 readiness 属性及回滚边界，见 **[IMS 系统属性测试参考](docs/S20_IMS_SYSTEM_PROPERTIES.md)**。
+如果你是开发者，需要进行开发或测试，项目有一些测试开关、只读 readiness 属性及回滚边界，见 **[IMS 系统属性测试参考](docs/S20_IMS_SYSTEM_PROPERTIES.zh-CN.md)**。
 
 ```bash
 source tools/env.sh
@@ -135,8 +135,8 @@ bash build.sh release --stock-apk path/to/mount_system/system/priv-app/imsservic
 ### 历史手工流程
 
 下方旧的单 DEX 补丁步骤只为说明历史版本而保留，**不能**作为支持的重建方法：它会丢失
-`classes2.dex`、`classes3.dex` 和 `classes4.dex`，从而缺少 Samsung API、Gson 与 VSIM
-兼容类。请使用 [BUILD.md](BUILD.md) 的四 DEX 分阶段流程。
+`classes2.dex`、`classes3.dex` 和 `classes4.dex`，从而缺少 Samsung API、Gson 与 VSIM 兼容类。
+请使用 [BUILD.md](BUILD.md) 的四 DEX 分阶段流程。
 
 仓库内 `proprietary_vendor_samsung_ims/proprietary/system/priv-app/imsservice/imsservice.apk`
 **已经打好补丁并用 AOSP testkey 签名**。如果你的 ROM 使用同一证书，可直接使用，跳过本节。

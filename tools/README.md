@@ -1,5 +1,9 @@
 # Tools & Environment Requirements
 
+> 中文文档：[README.zh-CN.md](README.zh-CN.md)
+
+---
+
 This directory is intentionally **empty of binaries**. Do not commit the Android SDK,
 build tools, or signing keys here — `.gitignore` blocks `tools/keys/` and all key
 material by design.
