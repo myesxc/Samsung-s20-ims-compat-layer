@@ -8,6 +8,7 @@
 # and it only exports paths — the tools and keys it points at stay ignored.
 tools/*
 !tools/README.md
+!tools/README.zh-CN.md
 !tools/env.sh
 out/*
 !out/.gitkeep
