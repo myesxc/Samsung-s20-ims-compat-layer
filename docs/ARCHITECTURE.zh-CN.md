@@ -71,7 +71,7 @@ AOSP GSI framework
 - **desem81/final** 是当前最终兼容状态。
 - **`smali_out/`** 是由 Java bridge 生成的、经审阅的 smali 快照。最终构建会在私有位置重新生成 bridge；若与此快照不一致，构建会拒绝继续。
 
-历史 `smali_patch.diff` 不是支持的独立构建路径。只包含 primary DEX 的重建 APK 可以安装和签名，却可能因遗漏多 DEX 依赖而无法注册 IMS。权威构建步骤见 [BUILD.md](../BUILD.md)。
+历史的 `smali_patch.diff` 单 DEX 路径已被删除。它只覆盖 163 个被补丁修改文件中的 21 个——遗漏了注册所依赖的现代 `ImsService` 类——同时还丢失三个次级 DEX，因此据其重建的 APK 可以安装和签名，却永远无法注册 IMS。`patches/` 已完全取代它。权威构建步骤见 [BUILD.md](../BUILD.md)。
 
 ### 四个 DEX 文件
 

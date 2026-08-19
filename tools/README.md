@@ -73,7 +73,7 @@ What each is for:
 | `file` | same script, ELF sanity check |
 | `unzip` / `zip` | extracting the SDK, dex-tools, apktool; repacking the Magisk module |
 | `wget` / `curl` | downloading the SDK and tools |
-| `patch` | applying `smali_patch.diff` to the decompiled stock APK |
+| `patch` | applying `patches/stock-to-desem5.patch` and `patches/desem5-to-desem81.patch` |
 | `git` | cloning this repository |
 | `python3` | optional helper scripts |
 | `build-essential` | provides `make` and common build utilities |

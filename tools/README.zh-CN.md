@@ -61,7 +61,7 @@ sudo apt install -y \
 | `file` | 同一脚本，ELF 合理性检查 |
 | `unzip` / `zip` | 提取 SDK、dex-tools、apktool；重新打包 Magisk 模块 |
 | `wget` / `curl` | 下载 SDK 和工具 |
-| `patch` | 对解压的原厂 APK 应用 `smali_patch.diff` |
+| `patch` | 应用 `patches/stock-to-desem5.patch` 与 `patches/desem5-to-desem81.patch` |
 | `git` | 克隆此仓库 |
 | `python3` | 可选辅助脚本 |
 | `build-essential` | 提供 `make` 和常见构建工具 |

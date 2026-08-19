@@ -4,7 +4,7 @@
 
 ---
 
-The historical S20 port is a **four-DEX** application. A previous public build procedure rebuilt only the stock primary DEX, producing an installable and correctly signed APK that could not register IMS. Do not use `smali_patch.diff` plus `smali_out/` as a standalone APK build procedure.
+The S20 port is a **four-DEX** application, and its primary DEX depends on all 163 patched files. An earlier public procedure rebuilt only part of the primary DEX and shipped no secondary DEX files; it produced an installable, correctly signed APK that could not register IMS. That procedure and its `smali_patch.diff` have been removed — `patches/` is the only source of smali changes, and `smali_out/` is a reviewed snapshot, never a standalone build input.
 
 The build script applies both stages internally, compiles the tracked Java bridge into a private temporary smali tree, injects it into the primary DEX, and emits only the final desem81-compatible APK:
 

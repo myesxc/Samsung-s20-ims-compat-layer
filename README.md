@@ -54,8 +54,10 @@ This project bridges the two:
 1. **`AndroidManifest.xml`** — declares the modern service so `ImsResolver` can bind it
    (`android.telephony.ims.ImsService` action, `BIND_IMS_SERVICE` permission,
    `MMTEL_FEATURE` metadata), and removes Samsung-platform-only requirements.
-2. **`smali_patch.diff`** — targeted patches to Samsung's original smali: de-Samsung-ing
-   private API calls, modern `ImsService` registration, and call-session lifecycle fixes.
+2. **`patches/`** — two ordered patches against Samsung's original smali, covering 163 files:
+   de-Samsung-ing private API calls, modern `ImsService` registration, and call-session
+   lifecycle fixes. `stock-to-desem5` establishes the GSI compatibility baseline;
+   `desem5-to-desem81` carries it to the verified final state.
 3. **`java/`** (compiled to `smali_out/`) — new bridge classes injected into `classes.dex`:
    - `ModernImsSms` — IMS SMS over the modern `ImsService` API
    - `ApRtpReceivePoc` / `ApRtpUplinkPoc` — AP-side RTP receive and uplink (the CP media
@@ -79,7 +81,8 @@ This project bridges the two:
 
 ```text
 AndroidManifest.xml                 patched manifest (replaces the stock one)
-smali_patch.diff                    patch against the stock decompiled smali
+patches/                            the two ordered smali patches + the desem5 manifest
+build/                              staged APK assembler and verifiers (authoritative build)
 java/                               bridge sources (this project's own code)
 smali_out/                          compiled bridge smali — copy into the decompiled APK
 libs/                               compile-time-only jars (imsmanager, EpdgManager, rcsopenapi)
@@ -110,11 +113,10 @@ tools/                              (empty) environment and version requirements
 
 ## How to build
 
-> **Important:** The working S20 port is a four-DEX APK. The former single-DEX
-> `smali_patch.diff` procedure is incomplete and produces an APK that cannot register IMS.
-> Follow the staged build in **[BUILD.md](BUILD.md)** instead. It validates the exact stock
-> input, applies `stock-to-desem5` then `desem5-to-desem81`, preserves all four DEX files,
-> and verifies the final modern IMS service implementation.
+> **Important:** The working S20 port is a four-DEX APK, and its primary DEX depends on all
+> 163 patched files. Follow the staged build in **[BUILD.md](BUILD.md)**. It validates the
+> exact stock input, applies `stock-to-desem5` then `desem5-to-desem81`, preserves all four
+> DEX files, and verifies the final modern IMS service implementation.
 
 Full environment setup, package list and exact versions: **[tools/README.md](tools/README.md)**.
 
@@ -142,49 +144,42 @@ tracked `smali_out/` snapshot; the assembler refuses a final build if fresh Java
 from that snapshot.
 
 
-### Historical manual procedure
-
-The former single-DEX patch sequence below is retained only to explain older releases. It is
-**not** a supported rebuild method: it drops `classes2.dex`, `classes3.dex` and `classes4.dex`
-and therefore omits required Samsung API, Gson and VSIM compatibility classes. Use the staged
-four-DEX workflow in [BUILD.md](BUILD.md).
+### Prebuilt patched APK
 
 The APK at `proprietary_vendor_samsung_ims/proprietary/system/priv-app/imsservice/imsservice.apk`
-is **already patched and signed** with the AOSP testkey. If your ROM uses that certificate
-you can use it directly and skip this section.
+is **already patched and signed** with the AOSP testkey. If your ROM uses that certificate you
+can deploy it directly without building anything. Its stock input is Samsung firmware
+**G981NKSU1HVJG** (SM-G981N, Android 13), at `system/priv-app/imsservice/imsservice.apk`
+inside `system.img`.
 
-To rebuild it yourself:
+### Removed: the historical single-DEX procedure
 
-1. Obtain `imsservice.apk` from Samsung firmware **G981NKSU1HVJG** (SM-G981N, Android 13),
-   at `system/priv-app/imsservice/imsservice.apk` inside `system.img`.
-2. `apktool d imsservice.apk -o imsservice_dec`
-   This firmware APK contains one `classes.dex`, so apktool creates `smali/`. Everything
-   this project patches and adds belongs in that directory.
-3. `patch -p1 -d imsservice_dec/smali < smali_patch.diff`
-   *(note the `/smali` — the diff paths are `a/com/...`, relative to the smali root, not to
-   the decompiled APK root)*
-4. `cp -r smali_out/* imsservice_dec/smali/`
-5. `cp AndroidManifest.xml imsservice_dec/AndroidManifest.xml`
-6. `apktool b imsservice_dec -o imsservice_unsigned.apk`
-7. `zipalign -p -f 4 imsservice_unsigned.apk imsservice_aligned.apk`
-   *(zipalign is mandatory — an unaligned APK installs as "App not installed" on R+)*
-8. Sign with your ROM's platform key:
-   ```bash
-   apksigner sign --key tools/keys/platform.pk8 \
-                  --cert tools/keys/platform.x509.pem \
-                  imsservice_aligned.apk
-   ```
+Earlier releases shipped a `smali_patch.diff` together with a manual `apktool` recipe. Both
+were removed, because the recipe could not produce a registering APK while still looking
+runnable enough to invite attempts:
 
-Steps 3 and 4 are distinct and both required. The patch modifies **existing** Samsung
-classes and also adds the two stock-missing compat bridge classes
-`GoogleImsServiceAdapter` and `ImsMmtelFeature`; `smali_out/` adds the Java-built AP-media,
-SMS and diagnostic bridge classes. Applying only one of the two produces an incomplete APK.
+- It patched **21 of the 163 files** the real build patches. Every line it contained is
+  already reproduced in `patches/`, so deleting it lost no information.
+- The 142 files it omitted include `GoogleModernImsService`, `GoogleModernMmTelFeature` and
+  `GoogleModernRegistration` — the modern `ImsService` route that IMS registration actually
+  depends on. It still patched the superseded `GoogleImsServiceAdapter` / `ImsMmtelFeature`
+  compat route.
+- It also omitted the de-Samsung stubs (`SemCscFeature`, `SemFloatingFeature`,
+  `SemWifiManager`, `SemCarrierFeature`, `SemEmergencyManager`, `Mno`, `TelephonyFeatures`)
+  and the entire `ModernCallSessionListenerRelay` lambda set.
+- Independently of all that, rebuilding only the primary DEX dropped `classes2.dex`,
+  `classes3.dex` and `classes4.dex`, losing the Samsung API, Gson and VSIM compatibility
+  classes.
+
+The missing secondary DEX files were therefore not the only defect — the primary DEX that
+procedure built was itself 142 files short. `git show 74ff969:smali_patch.diff` retrieves the
+deleted file if you need it for archaeology.
 
 ---
 
 ## How to install
 
-1. Verify the declared 61-file Magisk payload against the mounted stock system image:
+1. Verify the declared 60-file Magisk payload against the mounted stock system image:
    ```bash
    bash magisk-module/verify_payload.sh /path/to/mount_system/system
    ```

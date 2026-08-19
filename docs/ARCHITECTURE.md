@@ -69,7 +69,7 @@ hash-verified stock APK
 - **desem81/final** is the current final compatibility state.
 - **`smali_out/`** is a reviewed snapshot of generated Java bridge smali. The final builder regenerates the bridge privately and rejects a build if it differs from this snapshot.
 
-The historical `smali_patch.diff` is not a supported standalone build path. A primary-DEX-only rebuild can install and sign yet fail IMS registration because it omits required multi-DEX dependencies. The authoritative procedure is [BUILD.md](../BUILD.md).
+The historical `smali_patch.diff` single-DEX path has been removed. It covered only 21 of the 163 patched files — omitting the modern `ImsService` classes that registration depends on — and it also dropped the three secondary DEX files, so a rebuild from it could install and sign yet never register IMS. `patches/` supersedes it entirely. The authoritative procedure is [BUILD.md](../BUILD.md).
 
 ### Four DEX files
 

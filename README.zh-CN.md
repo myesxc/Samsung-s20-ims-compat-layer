@@ -49,8 +49,9 @@ IMS 短信、紧急呼叫，以及一套**保持 selinux 为 enforce **的 SELin
 1. **`AndroidManifest.xml`** —— 补上让 `ImsResolver` 能够绑定的现代服务声明
    （`android.telephony.ims.ImsService` action、`BIND_IMS_SERVICE` 权限、
    `MMTEL_FEATURE` 元数据），并移除仅三星平台才有的依赖。
-2. **`smali_patch.diff`** —— 对原厂 smali 的定点补丁：去私有化、现代 `ImsService` 注册、
-   通话会话生命周期修复。
+2. **`patches/`** —— 针对原厂 smali 的两个有序补丁，共覆盖 163 个文件：去私有化、
+   现代 `ImsService` 注册、通话会话生命周期修复。`stock-to-desem5` 建立 GSI 兼容基线，
+   `desem5-to-desem81` 推进到已验证的最终状态。
 3. **`java/`**（编译产物为 `smali_out/`）—— 注入 `classes.dex` 的新桥接类：
    - `ModernImsSms` —— 走现代 `ImsService` API 的 IMS 短信
    - `ApRtpReceivePoc` / `ApRtpUplinkPoc` —— AP 侧 RTP 收发（GSI 上 CP 媒体通路从不触发，
@@ -73,7 +74,8 @@ IMS 短信、紧急呼叫，以及一套**保持 selinux 为 enforce **的 SELin
 
 ```text
 AndroidManifest.xml                 改造后的清单（替换原厂）
-smali_patch.diff                    针对原厂反编译 smali 的补丁
+patches/                            两个有序 smali 补丁 + desem5 清单
+build/                              分阶段 APK 组装器与校验脚本（权威构建路径）
 java/                               桥接源码（本项目自研代码）
 smali_out/                          编译好的桥接 smali —— 拷进反编译后的 APK
 libs/                               仅编译期使用的 jar（imsmanager / EpdgManager / rcsopenapi）
@@ -103,10 +105,10 @@ tools/                              （空目录）环境与版本要求说明
 
 ## 如何构建
 
-> **重要：**可用的 S20 移植依靠一份四 DEX APK。
-> 此前仅使用 `smali_patch.diff`的单 DEX 流程并不完整，会构建出无法注册 IMS 的 APK。
-> 请改用**[BUILD.md](BUILD.md)** 中的分阶段流程：它会校验精确的原厂输入，
-> 依次应用`stock-to-desem5` 和 `desem5-to-desem81`，来完成最终的 IMS 服务实现。
+> **重要：**可用的 S20 移植依靠一份四 DEX APK，且其主 DEX 依赖全部 163 个被补丁修改的文件。
+> 请使用 **[BUILD.md](BUILD.md)** 中的分阶段流程：它会校验精确的原厂输入，
+> 依次应用 `stock-to-desem5` 和 `desem5-to-desem81`，保留全部四个 DEX，
+> 并校验最终的现代 IMS 服务实现。
 
 完整环境搭建、依赖包清单和精确版本号见 **[tools/README.md](tools/README.md)**。
 
@@ -132,40 +134,37 @@ bash build.sh release --stock-apk path/to/mount_system/system/priv-app/imsservic
 最终组装会拒绝继续，避免 Java 源码与 APK 内容漂移。
 
 
-### 历史手工流程
-
-下方旧的单 DEX 补丁步骤只为说明历史版本而保留，**不能**作为支持的重建方法：它会丢失
-`classes2.dex`、`classes3.dex` 和 `classes4.dex`，从而缺少 Samsung API、Gson 与 VSIM 兼容类。
-请使用 [BUILD.md](BUILD.md) 的四 DEX 分阶段流程。
+### 预构建的已打补丁 APK
 
 仓库内 `proprietary_vendor_samsung_ims/proprietary/system/priv-app/imsservice/imsservice.apk`
-**已经打好补丁并用 AOSP testkey 签名**。如果你的 ROM 使用同一证书，可直接使用，跳过本节。
+**已经打好补丁并用 AOSP testkey 签名**。如果你的 ROM 使用同一证书，可以不构建任何东西直接部署。
+它的原厂输入是三星固件 **G981NKSU1HVJG**（SM-G981N，Android 13），
+位于 `system.img` 内的 `system/priv-app/imsservice/imsservice.apk`。
 
-自行重建的步骤：
+### 已删除：历史单 DEX 流程
 
-1. 从三星固件 **G981NKSU1HVJG**（SM-G981N，Android 13）中提取 `imsservice.apk`，
-   位于 `system.img` 内的 `system/priv-app/imsservice/imsservice.apk`。
-2. `apktool d imsservice.apk -o imsservice_dec`
-   该固件 APK 仅包含一个 `classes.dex`，所以 apktool 会生成 `smali/`；本项目的补丁
-   和新增类都应放在此目录。
-3. `patch -p1 -d imsservice_dec/smali < smali_patch.diff`
-4. `cp -r smali_out/* imsservice_dec/smali/`
-5. `cp AndroidManifest.xml imsservice_dec/AndroidManifest.xml`
-6. `apktool b imsservice_dec -o imsservice_unsigned.apk`
-7. `zipalign -p -f 4 imsservice_unsigned.apk imsservice_aligned.apk`
-   *（zipalign 是必须的 —— 未对齐的 APK 在 Android R+ 上会安装成"未安装"）*
-8. 用目标 ROM 的平台密钥签名：
-   ```bash
-   apksigner sign --key tools/keys/platform.pk8 \
-                  --cert tools/keys/platform.x509.pem \
-                  imsservice_aligned.apk
-   ```
+早期版本随仓库提供了 `smali_patch.diff` 以及一套手工 `apktool` 步骤。两者都已删除——
+那套步骤构建不出能注册的 APK，却看起来足够"可以照着敲"，因而会诱导读者去尝试：
+
+- 它只修改了真实构建所需 163 个文件中的 **21 个**。它包含的每一行都已经在 `patches/`
+  中复现，因此删除它不会丢失任何信息。
+- 它遗漏的 142 个文件里包括 `GoogleModernImsService`、`GoogleModernMmTelFeature` 和
+  `GoogleModernRegistration`——IMS 注册真正依赖的现代 `ImsService` 路线。而它修改的仍是
+  已被取代的 `GoogleImsServiceAdapter` / `ImsMmtelFeature` compat 路线。
+- 它同样遗漏了去私有化桩（`SemCscFeature`、`SemFloatingFeature`、`SemWifiManager`、
+  `SemCarrierFeature`、`SemEmergencyManager`、`Mno`、`TelephonyFeatures`）以及整组
+  `ModernCallSessionListenerRelay` lambda 类。
+- 与上述问题相互独立的是，只重建主 DEX 会丢掉 `classes2.dex`、`classes3.dex` 和
+  `classes4.dex`，从而缺少 Samsung API、Gson 与 VSIM 兼容类。
+
+所以缺失次级 DEX 并不是它失败的唯一原因——它构建出的主 DEX 本身就少了 142 个文件的改动。
+如果需要考古，用 `git show 74ff969:smali_patch.diff` 可以取回被删除的文件。
 
 ---
 
 ## 如何安装
 
-1. 先针对挂载的原厂 system 镜像校验声明的 61 个 Magisk payload 文件：
+1. 先针对挂载的原厂 system 镜像校验声明的 60 个 Magisk payload 文件：
    ```bash
    bash magisk-module/verify_payload.sh /path/to/mount_system/system
    ```
